@@ -1,5 +1,9 @@
 module HealthBase
 
+@noinline function _foo()
+    return 1
+end
+
 """
     fit
 """
