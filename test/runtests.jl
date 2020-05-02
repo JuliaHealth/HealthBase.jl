@@ -1,6 +1,5 @@
-using HealthBase
-using Test
+import HealthBase
+import Test
 
-@testset "HealthBase.jl" begin
-    # Write your own tests here.
+Test.@testset "HealthBase.jl" begin
 end
