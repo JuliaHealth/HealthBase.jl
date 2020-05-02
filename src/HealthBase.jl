@@ -1,7 +1,7 @@
 module HealthBase
 
 @noinline function _foo()
-    return 1
+    return 2
 end
 
 """
