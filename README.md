@@ -7,4 +7,7 @@
 
 HealthBase provides a common namespace for packages in the JuliaHealth organization.
 
-The package is very lightweight. It has no dependencies of any kind. It contains only generic function stubs and type definitions.
+The package is very lightweight. It has no dependencies. It does not contain any code. It only contains:
+* Generic function stubs
+* Type definitions
+* Trait definitions
