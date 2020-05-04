@@ -1,10 +1,11 @@
 import Pkg
-Pkg.add(Pkg.PackageSpec(rev = "dpa/previews-repo-branch",
-                        url = "https://github.com/aluthge-forks/Documenter.jl"))
+Pkg.add(Pkg.PackageSpec(name = "Documenter",
+                        rev = "master"))
 
-using Documenter, HealthBase
+import Documenter
+import HealthBase
 
-makedocs(;
+Documenter.makedocs(;
     modules = [HealthBase],
     format = Documenter.HTML(),
     pages = [
@@ -16,7 +17,7 @@ makedocs(;
     assets = String[],
 )
 
-deploydocs(;
+Documenter.deploydocs(;
     repo = "github.com/JuliaHealth/HealthBase.jl",
     branch = "gh-pages",
 
