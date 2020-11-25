@@ -20,8 +20,4 @@ Documenter.makedocs(;
 Documenter.deploydocs(;
     repo = "github.com/JuliaHealth/HealthBase.jl",
     branch = "gh-pages",
-
-    push_preview = true,
-    repo_previews = "github.com/JuliaHealth/HealthBase.jl-previews",
-    branch_previews = "gh-pages",
 )
