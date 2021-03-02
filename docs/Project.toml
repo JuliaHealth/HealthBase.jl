@@ -1,2 +1,3 @@
-# [deps]
-# Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+HealthBase = "dfbc319a-70ba-40fd-96e8-5f86c13b0889"

@@ -1,23 +1,25 @@
-import Pkg
-Pkg.add(Pkg.PackageSpec(name = "Documenter",
-                        rev = "master"))
+using HealthBase
+using Documenter
 
-import Documenter
-import HealthBase
+DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase); recursive=true)
 
-Documenter.makedocs(;
-    modules = [HealthBase],
-    format = Documenter.HTML(),
-    pages = [
+makedocs(;
+    modules=[HealthBase],
+    authors="Dilum Aluthge and contributors",
+    repo="https://github.com/JuliaHealth/HealthBase.jl/blob/{commit}{path}#{line}",
+    sitename="HealthBase.jl",
+    format=Documenter.HTML(;
+        prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://JuliaHealth.github.io/HealthBase.jl",
+        assets=String[],
+    ),
+    pages=[
         "Home" => "index.md",
+        "API" => "api.md",
     ],
-    repo = "https://github.com/JuliaHealth/HealthBase.jl/blob/{commit}{path}#L{line}",
-    sitename = "HealthBase.jl",
-    authors = "JuliaHealth",
-    assets = String[],
+    strict=true,
 )
 
-Documenter.deploydocs(;
-    repo = "github.com/JuliaHealth/HealthBase.jl",
-    branch = "gh-pages",
+deploydocs(;
+    repo="github.com/JuliaHealth/HealthBase.jl",
 )
