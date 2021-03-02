@@ -1,5 +1,5 @@
-import HealthBase
-import Test
+using HealthBase
+using Test
 
-Test.@testset "HealthBase.jl" begin
+@testset "HealthBase.jl" begin
 end
