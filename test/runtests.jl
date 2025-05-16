@@ -1,8 +1,12 @@
+using DrWatson
 using HealthBase
+using Pkg
 using Test
 
-struct Foo end
+@testset "Exceptions" begin
+    include("exceptions.jl")
+end
 
-@testset "HealthBase.jl" begin
-    include("smart_authorization.jl")
+@testset "HealthBaseDrWatsonExt" begin
+    include("drwatsonext.jl")
 end

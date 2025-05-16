@@ -1,11 +1,20 @@
 module HealthBase
 
-export get_fhir_access_token
-export get_fhir_encounter_id
-export get_fhir_patient_id
-export has_fhir_encounter_id
-export has_fhir_patient_id
+using Base: get_extension
 
-include("smart_authorization.jl")
+using Base.Experimental: register_error_hint
 
-end # module
+include("drwatson_stub.jl")
+include("exceptions.jl")
+
+function __init__()
+    register_error_hint(MethodError) do io, exc, argtypes, kwargs
+        if exc.f == cohortsdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", cohortsdir, io)
+            end
+        end
+    end
+end
+
+end
