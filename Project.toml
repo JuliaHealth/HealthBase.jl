@@ -3,11 +3,18 @@ uuid = "94e1309d-ccf4-42de-905f-515f1d7b1cae"
 authors = ["Dilum Aluthge", "contributors"]
 version = "2.0.0"
 
-[extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+[weakdeps]
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+
+[extensions]
+HealthBaseDrWatsonExt = "DrWatson"
 
 [compat]
 julia = "1.10"
 
+[extras]
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
 [targets]
-test = ["Test"]
+test = ["Test", "DrWatson"]
