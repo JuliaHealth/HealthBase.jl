@@ -1,11 +1,7 @@
 module HealthBase
 
-export get_fhir_access_token
-export get_fhir_encounter_id
-export get_fhir_patient_id
-export has_fhir_encounter_id
-export has_fhir_patient_id
+using Base: get_extension
 
-include("smart_authorization.jl")
+using Base.Experimental: register_error_hint
 
 end # module
