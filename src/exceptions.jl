@@ -1,9 +1,9 @@
 function _extension_message(pkg, fn, io)
     print(io, "\n\nPlease load the ")
     printstyled(io, "$pkg", color = :green, bold = true)
-    print(io, " package to use the ")
+    print(io, " package to use ")
     printstyled(io, "$fn", color = :magenta)
-    print(io, " function. ")
+    print(io, ". ")
 
     println(io, "You can do this by running: \n")
 

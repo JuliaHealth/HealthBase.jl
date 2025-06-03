@@ -14,4 +14,4 @@ in your REPL or code.
 io = IOBuffer()
 HealthBase._extension_message("DrWatson", cohortsdir, io)
 
-@test String(take!(io)) == output 
+@test String(take!(io)) == output
