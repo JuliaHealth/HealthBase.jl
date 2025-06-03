@@ -1,4 +1,4 @@
-module HealthBaseOMOPExt
+module HealthBaseOMOPCDMExt
 
 using HealthBase
 using DataFrames
