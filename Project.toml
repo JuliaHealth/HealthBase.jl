@@ -10,11 +10,9 @@ OMOPCommonDataModel = "ba65db9e-6590-4054-ab8a-101ed9124986"
 
 [extensions]
 HealthBaseDrWatsonExt = "DrWatson"
-HealthBaseOMOPExt = ["DataFrames", "OMOPCommonDataModel"]
+HealthBaseOMOPCDMExt = ["DataFrames", "OMOPCommonDataModel"]
 
 [compat]
-DataFrames = "1.7.0"
-OMOPCommonDataModel = "0.1.4"
 julia = "1.10"
 
 [extras]
