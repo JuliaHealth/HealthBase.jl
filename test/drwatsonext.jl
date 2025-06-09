@@ -7,7 +7,8 @@ quickactivate(path)
 
 @test cohortsdir() == abspath("data", "cohorts")
 @test cohortsdir("under_review") == abspath("data", "cohorts", "under_review")
-@test cohortsdir("under_review", "stroke.json") == abspath("data", "cohorts", "under_review", "stroke.json")
+@test cohortsdir("under_review", "stroke.json") ==
+      abspath("data", "cohorts", "under_review", "stroke.json")
 
 cd("..")
-rm("test_project", recursive=true, force=true)
+rm("test_project", recursive = true, force = true)
