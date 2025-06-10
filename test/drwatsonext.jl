@@ -12,3 +12,7 @@ quickactivate(path)
 
 cd("..")
 rm("test_project", recursive = true, force = true)
+
+STUDY_TEMPLATES = Base.get_extension(HealthBase, :HealthBaseDrWatsonExt).STUDY_TEMPLATES
+@test STUDY_TEMPLATES[:default] == study_template(:default)
+@test STUDY_TEMPLATES[:observational] == study_template(:observational)
