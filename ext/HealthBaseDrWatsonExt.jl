@@ -5,6 +5,8 @@ using DrWatson
 
 __init__() = @info "DrWatson.jl extension for HealthBase has been loaded!"
 
+include("constants.jl")
+
 """
 ```julia
 cohortsdir(args...)
@@ -38,26 +40,6 @@ function HealthBase.cohortsdir(args...)
     joinpath(datadir("cohorts"), args...)
 end
 
-STUDY_DEFAULTS = Dict(
-    :default => (
-        template = DrWatson.DEFAULT_TEMPLATE,
-        folders_to_gitignore = ["data", "videos", "plots", "notebooks", "_research"],
-    ),
-    :observational => (
-        template = [
-            "_research",
-            "src",
-            "scripts",
-            "data",
-            "plots",
-            "notebooks",
-            "papers",
-            "data" => ["cohorts", "exp_raw", "exp_pro"],
-        ],
-        folders_to_gitignore = ["data/exp_raw", "data/exp_pro"],
-    ),
-)
-
 """
 ```julia
 study_template(tpl::Symbol)
@@ -78,14 +60,14 @@ Check and return an available study template.
 - A named tuple with specification information about the template used.
 """
 function HealthBase.study_template(tpl::Symbol)
-    if !in(tpl, keys(STUDY_DEFAULTS))
+    if !in(tpl, keys(STUDY_TEMPLATES))
         @error "`$tpl` is not a valid template."
 
         println("\nCheck the docstring for valid template options by running:\n")
         printstyled("@doc(study_template)\n", color = :cyan, bold = true)
         println("\nin your REPL or code.")
     else
-        return STUDY_DEFAULTS[tpl]
+        return STUDY_TEMPLATES[tpl]
     end
 end
 
