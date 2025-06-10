@@ -6,7 +6,7 @@ using Base.Experimental: register_error_hint
 
 include("drwatson_stub.jl")
 include("exceptions.jl")
-include("omop_stub.jl")
+include("omopcdm_stub.jl")
 
 function __init__()
     register_error_hint(MethodError) do io, exc, argtypes, kwargs
@@ -15,7 +15,7 @@ function __init__()
                 _extension_message("DrWatson", cohortsdir, io)
             end
         elseif exc.f == HealthTable
-            if isnothing(get_extension(HealthBase, :HealthBaseOMOPExt))
+            if isnothing(get_extension(HealthBase, :HealthBaseOMOPCDMExt))
                 _extension_message("OMOPCommonDataModel and DataFrames", HealthTable, io)
             end
         end

@@ -1,39 +1,43 @@
-module HealthBaseOMOPExt
+module HealthBaseOMOPCDMExt
 
 using HealthBase
 using DataFrames
 using OMOPCommonDataModel
+using OMOPCommonDataModel: OMOPCDM_VERSIONS
 
-__init__() = @info "OMOP CDM extension for HealthBase has been loaded!"
+function __init__()
+    @info "OMOP CDM extension for HealthBase has been loaded!"
+end
 
 """
-    HealthTable(df::DataFrame, omop_cdm_version="5.4"; disable_type_enforcement=false)
+    HealthTable(df::DataFrame; omop_cdm_version="5.4", disable_type_enforcement=false)
 
-Validate a DataFrame against the OMOP CDM specification for the given version.
+Constructs a `HealthTable` for an OMOP CDM dataset by validating the given `DataFrame`.
 
-Checks column names/types, attaches OMOP metadata to columns, and returns the DataFrame.
+This constructor validates the `DataFrame` against the specified OMOP CDM version. It checks that
+column names are valid OMOP CDM fields and that their data types are compatible. It then
+attaches all available metadata from the OMOP CDM specification to the DataFrame's columns.
 
-If `disable_type_enforcement` is true, type mismatches emit warnings instead of errors.
+If `disable_type_enforcement` is true, type mismatches will emit warnings instead of errors.
+
+Returns a `HealthTable` object wrapping the validated DataFrame.
 """
-function HealthBase.HealthTable(df::DataFrame, omop_cdm_version="5.4"; disable_type_enforcement=false)
-    # TODO: have to add logic for version specific fields types
-    omop_fields = Dict{String, Dict{Symbol, Any}}() 
-
-    for t in subtypes(OMOPCommonDataModel.CDMType)
-        for f in fieldnames(t)
-            actual_field_type = fieldtype(t, f)
-            omop_fields[string(f)] = Dict(:type => actual_field_type)
-        end
+function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="5.4", disable_type_enforcement=false)
+    if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
+        throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))"))
     end
 
+    omop_fields = OMOPCDM_VERSIONS[omop_cdm_version][:fields]
+
     for col in names(df)
-        if haskey(omop_fields, col)
-            fieldinfo = omop_fields[col]
+        col_symbol = Symbol(col)
+        if haskey(omop_fields, col_symbol)
+            fieldinfo = omop_fields[col_symbol]
             expected_type = get(fieldinfo, :type, Any)
-            actual_type = eltype(df[!, col])
+            actual_type = eltype(df[!, col_symbol])
 
             if !(actual_type <: expected_type)
-                msg = "Column '$(col)' has type $(actual_type), expected $(expected_type)"
+                msg = "Column '$(col)' has type $(actual_type), but expected a subtype of $(expected_type)"
                 if disable_type_enforcement
                     @warn msg
                 else
@@ -42,10 +46,14 @@ function HealthBase.HealthTable(df::DataFrame, omop_cdm_version="5.4"; disable_t
             end
 
             for (key, val) in fieldinfo
-                colmetadata!(df, col, string(key), string(val), style=:note)
+                if !isnothing(val) 
+                    colmetadata!(df, col_symbol, String(key), string(val); style=:note)
+                end
             end
         end
     end
 
-    return df
+    return HealthBase.HealthTable(source=df, omopcdm_version=omop_cdm_version)
+end
+
 end

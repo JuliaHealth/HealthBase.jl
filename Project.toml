@@ -4,8 +4,8 @@ authors = ["Dilum Aluthge", "contributors"]
 version = "2.0.0"
 
 [weakdeps]
-DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 OMOPCommonDataModel = "ba65db9e-6590-4054-ab8a-101ed9124986"
 
 [extensions]
