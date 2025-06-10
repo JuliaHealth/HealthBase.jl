@@ -60,14 +60,14 @@ Check and return an available study template.
 - A named tuple with specification information about the template used.
 """
 function HealthBase.study_template(tpl::Symbol)
-    if !in(tpl, keys(STUDY_TEMPLATES))
-        @error "`$tpl` is not a valid template."
-
+    try 
+        return STUDY_TEMPLATES[tpl]
+    catch e
+        println("\n`:$tpl` is not a valid template.")
         println("\nCheck the docstring for valid template options by running:\n")
         printstyled("@doc(study_template)\n", color = :cyan, bold = true)
-        println("\nin your REPL or code.")
-    else
-        return STUDY_TEMPLATES[tpl]
+        println("\nin your REPL or code.\n")
+        return e
     end
 end
 
@@ -97,7 +97,7 @@ function HealthBase.initialize_study(path, authors = nothing; template::Symbol =
     tpl = study_template(template).template
     ftg = study_template(template).folders_to_gitignore
 
-    initialize_project(path; authors = authors, template = tpl, folders_to_gitignore = ftg)
+    initialize_project(path; authors = authors, template = tpl, folders_to_gitignore = ftg, force = true)
     cd(path)
 end
 
