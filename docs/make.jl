@@ -13,7 +13,9 @@ makedocs(;
         canonical = "https://JuliaHealth.github.io/HealthBase.jl",
         assets = String[],
     ),
-    pages = ["Home" => "index.md", "API" => "api.md"],
+    pages = ["Home" => "index.md", 
+    "Workflows" => ["observational_template_workflow.md"],
+    "API" => "api.md"],
 )
 
 deploydocs(; repo = "github.com/JuliaHealth/HealthBase.jl")
