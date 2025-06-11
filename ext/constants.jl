@@ -20,4 +20,3 @@ const STUDY_TEMPLATES = Dict(
         folders_to_gitignore = ["data/exp_raw", "data/exp_pro"],
     ),
 )
-
