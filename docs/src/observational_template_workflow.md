@@ -1,79 +1,106 @@
-# \ud83d\udcca Observational Health Study Workflow
+# Observational Health Study Workflow
 
-This tutorial demonstrates how to initialize and run an observational health study using [HealthBase.jl](https://github.com/JuliaHealth/HealthBase.jl) and other JuliaHealth packages. It covers how to set up your study environment, download OHDSI cohort definitions, and execute them on a local OMOP CDM database.
+This tutorial demonstrates how to initialize and run an observational health study using [HealthBase.jl](https://github.com/JuliaHealth/HealthBase.jl).
+It also shows how other JuliaHealth packages integrate into this workflow.
+It covers how to set up your study environment.
+It walks through downloading OHDSI cohort definitions from ATLAS.
+It explains how to execute them on a local OMOP CDM database.
 
 ---
 
-## 1. \u2705 Setup
+## Learning Objectives
 
-First, make sure the required packages are available in your Julia environment:
+By the end of this tutorial, you will be able to:
 
-```@jldoctest
-using DrWatson
-using HealthBase
-```
+* Initialize a new observational health study project using `HealthBase.jl`
+* Download phenotype definitions and concept sets from OHDSI ATLAS via WebAPI
+* Translate OHDSI cohort definitions to SQL using `OHDSICohortExpressions.jl`
+* Execute translated SQL against an OMOP CDM database using `FunSQL.jl`
 
-You can install them if needed via:
+---
+
+## 1. Setup and Study Initialization
+
+First, ensure that the required packages are installed in your global Julia environment:
 
 ```@jldoctest
 import Pkg
 Pkg.add(["DrWatson", "HealthBase"])
 ```
 
----
+> **Note**: The global environment is the default Julia package environment shared across projects.
+> To learn more about environments, see the [Pkg documentation](https://pkgdocs.julialang.org/v1/environments/).
 
-## 2. \ud83c\udfc1 Initialize a Study
+Then, load the packages:
 
-To get started, initialize a new study with the `:observational` template:
+```@jldoctest
+using DrWatson
+using HealthBase
+```
+
+Initialize a new observational health study:
 
 ```@jldoctest
 initialize_study("JuliaHealth", "Emmy Noether"; template = :observational)
 ```
 
-This sets up a project structure using [`DrWatson.initialize_project`](https://juliadynamics.github.io/DrWatson.jl/dev/project/) under the hood and activates the environment for immediate use.
+This command creates a new directory called `JuliaHealth`.
+It sets up a DrWatson-compatible project using the `:observational` template.
+It activates a new Julia environment named `JuliaHealth`.
 
-> **Tip:** You can now begin tracking data, scripts, results, and cohort definitions in a reproducible way.
+After initializing the study, you should install the rest of the required packages in the new environment:
 
----
+```@jldoctest
+import Pkg
+Pkg.add(["OHDSIAPI", "OHDSICohortExpressions", "DuckDB", "DBInterface", "FunSQL", "DataFrames"])
+```
 
-## 3. \ud83d\udcc5 Download OHDSI Cohort Definitions
-
-Use the `OHDSIAPI` package to access ATLAS/WebAPI cohort definitions:
+Once the study is initialized and packages are installed, load all the necessary packages for this tutorial:
 
 ```@jldoctest
 using OHDSIAPI
+using OHDSICohortExpressions
+using DuckDB
+using DBInterface
+using FunSQL
+using DataFrames
 ```
 
-Download a single cohort definition using its ATLAS/WebAPI ID:
+---
+
+## 2. Download OHDSI Cohort Definitions
+
+[`OHDSIAPI.jl`](https://github.com/JuliaHealth/OHDSIAPI.jl) is a Julia interface to various OHDSI WebAPI services.
+It is maintained as part of the JuliaHealth ecosystem.
+
+Use it to access ATLAS, OHDSI's web-based tool for defining phenotypes and analyses.
+
+Download a single cohort definition using its ATLAS ID:
 
 ```@jldoctest
 cohort_path = download_cohort_definition(1793014; output_dir=cohortsdir(), metadata="metadata.json")
 ```
 
-Download multiple cohort definitions at once:
-
-```@jldoctest
-cohort_ids = [1793014, 1792956]
-download_cohort_definition(cohort_ids; progress_bar=true, verbose=true)
-```
-
-You can also fetch associated concept sets:
-
-```@jldoctest
-download_concept_set(cohort_ids; deflate=true, output_dir=cohortsdir())
-```
+> **Tip:** To download multiple cohort definitions with more verbose output:
+>
+> ```@jldoctest
+> cohort_ids = [1793014, 1792956]
+> download_cohort_definition(cohort_ids; progress_bar=true, verbose=true)
+> ```
+>
+> You can also download associated concept sets:
+>
+> ```@jldoctest
+> download_concept_set(cohort_ids; deflate=true, output_dir=cohortsdir())
+> ```
 
 ---
 
-## 4. \ud83d\udd04 Translate Cohort Definitions to SQL
+## 3. Translate Cohort Definitions to SQL
 
-To convert JSON cohort definitions to SQL for execution, use:
+Use [`OHDSICohortExpressions.jl`](https://github.com/JuliaHealth/OHDSICohortExpressions.jl) to convert OHDSI JSON cohort definitions into SQL.
 
-```@jldoctest
-using OHDSICohortExpressions
-```
-
-Load and translate the cohort definition:
+First, load and translate the cohort expression:
 
 ```@jldoctest
 cohort_expression = cohortsdir("1793014.json")
@@ -86,9 +113,9 @@ fun_sql = translate(
 
 ---
 
-## 5. \ud83d\uddc3\ufe0f Execute the Cohort on a Database
+## 4. Execute the Cohort on a Database
 
-We can now execute the SQL expression against a local or remote OMOP CDM database:
+You can now execute the translated SQL on an OMOP CDM-compliant database using `DuckDB` and `FunSQL`:
 
 ```@jldoctest
 import DBInterface: connect, execute
@@ -115,24 +142,21 @@ println(df)
 
 ---
 
-## 6. \ud83e\uddea Summary
+## Summary
 
-This workflow demonstrates a full observational study setup using the JuliaHealth ecosystem:
+This workflow demonstrates how to run an observational health study using tools from the JuliaHealth ecosystem:
 
-* \ud83d\udd27 Initialize a study project with `HealthBase.jl`
-* \ud83e\uddec Download cohorts and concept sets from OHDSI WebAPI using `OHDSIAPI.jl`
-* \ud83d\udd04 Translate definitions into executable SQL via `OHDSICohortExpressions.jl`
-* \ud83d\udcc0 Execute cohort logic against an OMOP CDM with `FunSQL.jl` and `DuckDB`
-
-The `:observational` template streamlines your study structure, making reproducible research in observational health more accessible for Julia users.
+* Initialize a project with a standardized structure using `HealthBase.jl`
+* Download cohort and concept set definitions from OHDSI ATLAS using `OHDSIAPI.jl`
+* Convert JSON cohort logic to SQL using `OHDSICohortExpressions.jl`
+* Execute SQL queries on an OMOP CDM database using `FunSQL.jl` and `DuckDB`
 
 ---
 
-## \ud83d\udd17 Related Resources
+## Related Resources
 
-* [OHDSI Cohort Definition System](https://ohdsi.github.io/CommonDataModel/)
-* [ATLAS Tool](https://atlas-demo.ohdsi.org/)
+* [OHDSI Common Data Model](https://ohdsi.github.io/CommonDataModel/)
+* [ATLAS Tool (Demo)](https://atlas-demo.ohdsi.org/)
 * [DrWatson.jl Documentation](https://juliadynamics.github.io/DrWatson.jl/)
 * [HealthBase.jl GitHub](https://github.com/JuliaHealth/HealthBase.jl)
-* [JuliaHealth Ecosystem](https://github.com/JuliaHealth)
-
+* [JuliaHealth GitHub](https://github.com/JuliaHealth)
