@@ -3,7 +3,6 @@ module HealthBaseOMOPCDMExt
 using HealthBase
 using DataFrames
 using OMOPCommonDataModel
-using OMOPCommonDataModel: OMOPCDM_VERSIONS
 
 function __init__()
     @info "OMOP CDM extension for HealthBase has been loaded!"
@@ -23,11 +22,11 @@ If `disable_type_enforcement` is true, type mismatches will emit warnings instea
 Returns a `HealthTable` object wrapping the validated DataFrame.
 """
 function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="5.4", disable_type_enforcement=false)
-    if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
-        throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))"))
+    if !haskey(OMOPCommonDataModel.OMOPCDM_VERSIONS, omop_cdm_version)
+        throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCommonDataModel.OMOPCDM_VERSIONS))"))
     end
 
-    omop_fields = OMOPCDM_VERSIONS[omop_cdm_version][:fields]
+    omop_fields = OMOPCommonDataModel.OMOPCDM_VERSIONS[omop_cdm_version][:fields]
 
     for col in names(df)
         col_symbol = Symbol(col)
