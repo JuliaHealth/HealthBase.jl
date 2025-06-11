@@ -2,7 +2,18 @@ module HealthBase
 
 using Base: get_extension
 
+# GIVING AN PRECOMPILING ERROR, if we do Tables in here
+# Issue regarding the dependencies i believe
+
+# using DataFrames
+# using Tables
+# using Base: @kwdef
 using Base.Experimental: register_error_hint
+
+# @kwdef struct HealthTable <: Tables.AbstractTable
+#     source::DataFrame
+#     omopcdm_version::String
+# end
 
 include("drwatson_stub.jl")
 include("exceptions.jl")
