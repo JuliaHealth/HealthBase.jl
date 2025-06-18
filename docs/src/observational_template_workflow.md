@@ -29,7 +29,7 @@ Pkg.add(
 
 Then, load the packages:
 
-```jldoctest
+```julia
 using DrWatson
 using HealthBase
 
@@ -39,7 +39,7 @@ import HealthBase:
 
 Initialize a new observational health study:
 
-```jldoctest
+```julia
 julia> initialize_study("sample_study", "Jenna Reps"; template = :observational)
 ```
 
@@ -48,7 +48,7 @@ Then, it activates a new Julia environment named `sample_study`.
 
 After initializing the study directory and Julia environment, install the remaining required packages:
 
-```jldoctest
+```julia
 Pkg.add(
   [
     "DataFrames",
@@ -64,7 +64,7 @@ Pkg.add(
 
 Now, load and import all necessary packages and functions:
 
-```jldoctest
+```julia
 using DataFrames
 using Downloads
 
@@ -115,7 +115,7 @@ cohort_path = download_cohort_definition(1793014; output_dir=cohortsdir())
 
 Now, we can use [`OHDSICohortExpressions.jl`](https://github.com/JuliaHealth/OHDSICohortExpressions.jl) to convert this cohort definition into SQL.
 
-```jldoctest
+```julia
 cohort_expression = cohortsdir("1793014.json")
 
 fun_sql = translate(
@@ -131,7 +131,7 @@ fun_sql = translate(
 For this guide, we will use a synthetic OMOP CDM v5.3 database from [Eunomia](https://github.com/OHDSI/EunomiaDatasets).
 We will download it as follows:
 
-```jldoctest
+```julia
 # TODO: Add download URL
 url = ""
 db_path = datadir("exp_raw", "omop_cdm.db")
@@ -144,7 +144,7 @@ Downloads.download(url, db_path)
 
 Create database connection and configure dialect:
 
-```jldoctest
+```julia
 const CONNECTION = connect(DB, datadir("exp_raw", "omop_cdm.db"))
 const SCHEMA = ""
 const DIALECT = :postgresql
@@ -152,14 +152,14 @@ const DIALECT = :postgresql
 
 Reflect database catalog and render SQL:
 
-```jldoctest
+```julia
 catalog = reflect(CONNECTION; schema=SCHEMA, dialect=DIALECT)
 sql = render(catalog, fun_sql)
 ```
 
 Execute cohort query and insert results into cohort table:
 
-```jldoctest
+```julia
 execute(
   CONNECTION,
   """
@@ -171,13 +171,13 @@ execute(
 
 Query results into a DataFrame:
 
-```jldoctest
+```julia
 df = execute(CONNECTION, "SELECT COUNT(*) FROM cohort;") |> DataFrame
 ```
 
 Display DataFrame:
 
-```jldoctest
+```julia
 println(df)
 ```
 
