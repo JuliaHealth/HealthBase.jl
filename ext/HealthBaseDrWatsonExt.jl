@@ -42,6 +42,99 @@ end
 
 """
 ```julia
+corpusdir(args...)
+```
+
+Return the directory path of the training corpus for the currently active project.
+
+# Arguments
+
+`args...` - other subdirectory or file names to add to the directory path.
+
+# Returns
+
+- A path representing the location of the training corpus for the currently active project.
+
+# Examples
+
+```julia-repl
+julia> corpusdir()
+"/home/User/MyCurrentProject/data/corpus"
+
+julia> corpusdir("sample")
+"/home/User/MyCurrentProject/data/corpus/sample"
+
+julia> corpusdir("sample", "text.txt")
+"/home/User/MyCurrentProject/data/corpus/sample/text.txt"
+```
+
+"""
+function HealthBase.corpusdir(args...)
+    joinpath(datadir("corpus"), args...)
+end
+
+"""
+```julia
+modelsdir(args...)
+```
+
+Return the directory path of downloaded LLM models for the currently active project.
+
+# Arguments
+
+`args...` - other subdirectory or file names to add to the directory path.
+
+# Returns
+
+- A path representing the location of downloaded LLM models for the currently active project.
+
+# Examples
+
+```julia-repl
+julia> modelsdir()
+"/home/User/MyCurrentProject/data/models"
+
+julia> modelsdir("model.gguf")
+"/home/User/MyCurrentProject/data/models/model.gguf"
+```
+
+"""
+function HealthBase.modelsdir(args...)
+    joinpath(datadir("models"), args...)
+end
+
+"""
+```julia
+configdir(args...)
+```
+
+Return the directory path of LLM model and tool configuration files for the currently active project.
+
+# Arguments
+
+`args...` - other subdirectory or file names to add to the directory path.
+
+# Returns
+
+- A path representing the location of LLM model and tool configuration files for the currently active project.
+
+# Examples
+
+```julia-repl
+julia> configdir()
+"/home/User/MyCurrentProject/config/models"
+
+julia> configdir("sample.modelfile")
+"/home/User/MyCurrentProject/data/config/sample.modelfile"
+```
+
+"""
+function HealthBase.configdir(args...)
+    joinpath(datadir("config"), args...)
+end
+
+"""
+```julia
 study_template(tpl::Symbol)
 ```
 
