@@ -1,4 +1,4 @@
-# Observational Health Study Workflow
+# Observational Health Study
 
 This tutorial demonstrates how to initialize and run an observational health study using [HealthBase.jl](https://github.com/JuliaHealth/HealthBase.jl).
 It also shows how other JuliaHealth packages integrate into this workflow.
