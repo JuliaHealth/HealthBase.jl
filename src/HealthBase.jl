@@ -12,6 +12,18 @@ function __init__()
             if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
                 _extension_message("DrWatson", cohortsdir, io)
             end
+        elseif exc.f == corpusdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", corpusdir, io)
+            end
+        elseif exc.f == modelsdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", modelsdir, io)
+            end
+        elseif exc.f == configdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", configdir, io)
+            end
         elseif exc.f == initialize_study
             if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
                 _extension_message("DrWatson", initialize_study, io)
