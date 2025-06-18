@@ -1,7 +1,8 @@
 using HealthBase
 using Documenter
 
-DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase); recursive = true)
+# TODO: Re-enable when doctests are ready
+# DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase); recursive = true)
 
 makedocs(;
     modules = [HealthBase],
