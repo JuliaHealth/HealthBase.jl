@@ -13,9 +13,11 @@ makedocs(;
         canonical = "https://JuliaHealth.github.io/HealthBase.jl",
         assets = String[],
     ),
-    pages = ["Home" => "index.md", 
-    "Workflow Guides" => ["observational_template_workflow.md"],
-    "API" => "api.md"],
+    pages = [
+        "Home" => "index.md",
+        "Workflow Guides" => ["observational_template_workflow.md"],
+        "API" => "api.md",
+    ],
     # TODO: Update and configure doctests before next release
     # TODO: Add doctests to testing suite
     doctest = false,

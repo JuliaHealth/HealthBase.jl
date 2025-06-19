@@ -17,8 +17,7 @@ quickactivate(path)
 
 @test corpusdir() == abspath("data", "corpus")
 @test corpusdir("sample") == abspath("data", "corpus", "sample")
-@test corpusdir("sample", "text.txt") ==
-      abspath("data", "corpus", "sample", "text.txt")
+@test corpusdir("sample", "text.txt") == abspath("data", "corpus", "sample", "text.txt")
 
 @test modelsdir() == abspath("data", "models")
 @test modelsdir("model.gguf") == abspath("data", "models", "model.gguf")
