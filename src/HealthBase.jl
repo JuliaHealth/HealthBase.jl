@@ -26,6 +26,17 @@ function __init__()
         elseif exc.f == HealthTable
             if isnothing(get_extension(HealthBase, :HealthBaseOMOPCDMExt))
                 _extension_message("OMOPCommonDataModel and DataFrames", HealthTable, io)
+        elseif exc.f == corpusdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", corpusdir, io)
+            end
+        elseif exc.f == modelsdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", modelsdir, io)
+            end
+        elseif exc.f == configdir
+            if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
+                _extension_message("DrWatson", configdir, io)
             end
         elseif exc.f == initialize_study
             if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
