@@ -23,9 +23,9 @@
         ethnicity_concept_id=0
     )
 
+    ht = HealthTable(person_df_good; omop_cdm_version="v5.4.0")
     @testset "Constructor and Type Validation" begin
         @testset "Valid DataFrame" begin
-            ht = HealthTable(person_df_good; omop_cdm_version="v5.4.0")
             @test ht isa HealthBase.HealthTable
             @test ht.omop_cdm_version == "v5.4.0"
         end
@@ -33,5 +33,25 @@
         @testset "Invalid DataFrame - Single Error" begin
             @test_throws ArgumentError HealthTable(person_df_bad; omop_cdm_version="v5.4.0")
         end
+    end
+
+    @testset "HealthTable Tables.jl interface" begin
+        @test Tables.istable(typeof(ht)) == true
+    
+        # Test schema matches DataFrame
+        sch_ht = Tables.schema(ht)
+        sch_df = Tables.schema(person_df_good)
+        @test sch_ht.names == sch_df.names
+        @test sch_ht.types == sch_df.types
+    
+        # Test rows
+        rows_ht = collect(Tables.rows(ht))
+        rows_df = collect(Tables.rows(person_df_good))
+        @test length(rows_ht) == length(rows_df)
+        @test rows_ht[1].person_id == rows_df[1].person_id
+    
+        # Test DataFrame materialization
+        df2 = DataFrame(ht)
+        @test df2 == person_df_good
     end
 end
