@@ -2,18 +2,7 @@ module HealthBase
 
 using Base: get_extension
 
-# GIVING AN PRECOMPILING ERROR, if we do Tables in here
-# Issue regarding the dependencies i believe
-
-# using DataFrames
-# using Tables
-# using Base: @kwdef
 using Base.Experimental: register_error_hint
-
-# @kwdef struct HealthTable <: Tables.AbstractTable
-#     source::DataFrame
-#     omopcdm_version::String
-# end
 
 include("exceptions.jl")
 
@@ -26,6 +15,7 @@ function __init__()
         elseif exc.f == HealthTable
             if isnothing(get_extension(HealthBase, :HealthBaseOMOPCDMExt))
                 _extension_message("OMOPCommonDataModel and DataFrames", HealthTable, io)
+            end
         elseif exc.f == corpusdir
             if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))
                 _extension_message("DrWatson", corpusdir, io)
@@ -50,6 +40,7 @@ function __init__()
     end
 end
 
+include("healthtable_interface.jl")
 include("drwatson_stub.jl")
 include("omopcdm_stub.jl")
 

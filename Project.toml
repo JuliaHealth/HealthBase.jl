@@ -3,16 +3,24 @@ uuid = "94e1309d-ccf4-42de-905f-515f1d7b1cae"
 authors = ["Dilum Aluthge", "contributors"]
 version = "2.0.0"
 
+[deps]
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
 [weakdeps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DrWatson = "634d3b9d-ee7a-5ddf-bec9-22491ea816e1"
 OMOPCommonDataModel = "ba65db9e-6590-4054-ab8a-101ed9124986"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+InlineStrings = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
 
 [extensions]
 HealthBaseDrWatsonExt = "DrWatson"
-HealthBaseOMOPCDMExt = ["DataFrames", "OMOPCommonDataModel"]
+HealthBaseOMOPCDMExt = ["DataFrames", "OMOPCommonDataModel", "InlineStrings", "Serialization"]
 
 [compat]
+Tables = "1.12.1"
+Dates = "1.11.0"
 julia = "1.10"
 
 [extras]

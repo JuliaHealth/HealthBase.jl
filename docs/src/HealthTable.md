@@ -4,13 +4,14 @@
 
 The proposed interface aims to provide:
 
-- Schema-Aware Access: Standardized and schema-aware access to core OMOP CDM tables (example: `PERSON`, `CONDITION_OCCURRENCE`, `DRUG_EXPOSURE`, `OBSERVATION_PERIOD` etc). Schema awareness will be derived from `OMOPCommonDataModel.jl`.
+- Schema-Aware Validation: Instead of just wrapping your data, `HealthBase.jl` actively validates it against the official OMOP Common Data Model specification. "Schema-aware" means it understands the expected structure for a given OMOP CDM version (e.g., "5.4") by using `OMOPCommonDataModel.jl`. This includes:
+    - Column Type Enforcement: It checks that the data types in your table (e.g., a `DataFrame`) match the official types. For example, it ensures that a `person_id` is an integer and a `condition_start_date` is a `Date`.
+    - Error Reporting: If there are mismatches, it provides clear, actionable error messages listing all columns that do not conform to the schema, helping you fix your data quickly.
 - Preprocessing Utilities: Built-in or easily integrable support for common preprocessing tasks, including:
     - One-hot encoding.
     - Normalization.
     - Handling missing values.
     - Vocabulary compression for high-cardinality categorical variables.
-- Concept Mapping: Utilities to aggregate or map related medical codes (example: grouping SNOMED conditions).
 - JuliaHealth Integration: Seamless interoperability with existing and future JuliaHealth tools, such as:
     - `OMOPCDMCohortCreator.jl`
     - `MLJ.jl` (for machine learning pipelines)
