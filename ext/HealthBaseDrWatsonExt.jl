@@ -196,6 +196,7 @@ function HealthBase.initialize_study(path, authors = nothing; template::Symbol =
         template = tpl,
         folders_to_gitignore = ftg,
         force = true,
+        add_docs = true
     )
     cd(path)
 end
