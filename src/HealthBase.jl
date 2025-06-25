@@ -1,8 +1,8 @@
 module HealthBase
 
-using Base: get_extension
-
+using Base: get_extension, @kwdef
 using Base.Experimental: register_error_hint
+using Tables
 
 include("exceptions.jl")
 
@@ -14,7 +14,7 @@ function __init__()
             end
         elseif exc.f == HealthTable
             if isnothing(get_extension(HealthBase, :HealthBaseOMOPCDMExt))
-                _extension_message("OMOPCommonDataModel and DataFrames", HealthTable, io)
+                _extension_message("OMOPCommonDataModel, DataFrames", HealthTable, io)
             end
         elseif exc.f == corpusdir
             if isnothing(get_extension(HealthBase, :HealthBaseDrWatsonExt))

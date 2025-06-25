@@ -14,19 +14,19 @@ The envisioned process for working with OMOP CDM data using these `HealthBase.jl
     *   Crucially, it attaches metadata to the columns, indicating their official OMOP CDM types.
     *   The output is a `DataFrame` that is now validated and conformed to the specified OMOP CDM table structure.
 
-3.  **Wrapping with `OMOPCDMTable`:**
-    The validated and conformed `DataFrame` (output from `HealthTable`) is then wrapped using the `OMOPCDMTable` to provide a schema-aware `Tables.jl` interface. This wrapper uses the same `OMOPCommonDataModel.jl` type to ensure consistency.
+3.  **Wrapping with `HealthTable`:**
+    The validated and conformed `DataFrame` (output from `HealthTable`) is then wrapped using the `HealthTable` to provide a schema-aware `Tables.jl` interface. This wrapper uses the same `OMOPCommonDataModel.jl` type to ensure consistency.
 
 4.  **Interacting via `Tables.jl`:**
-    Once wrapped, the `OMOPCDMTable` instance can be seamlessly used with any `Tables.jl`-compatible tools and standard `Tables.jl` functions
+    Once wrapped, the `HealthTable` instance can be seamlessly used with any `Tables.jl`-compatible tools and standard `Tables.jl` functions
 
 5.  **Applying Preprocessing Utilities:**
-    Once the data is an `OMOPCDMTable`, common preprocessing steps essential for analysis or predictive modeling can be applied. These methods, built upon the `Tables.jl` interface, include:
+    Once the data is an `HealthTable`, common preprocessing steps essential for analysis or predictive modeling can be applied. These methods, built upon the `Tables.jl` interface, include:
     *   One-hot encoding.
     *   Handling of high-cardinality categorical variables.
     *   Concept mapping utilities to group related codes (example: SNOMED conditions).
     *   Normalization, missing value imputation, etc.
-    These utilities would typically return a new (or modified) `OMOPCDMTable` or a materialized `DataFrame`, ready for further use.
+    These utilities would typically return a new (or modified) `HealthTable` or a materialized `DataFrame`, ready for further use.
 
 
 ## Example Usage (Conceptual)
@@ -46,7 +46,7 @@ condition_occurrence_df = DataFrame(
 )
 
 # Validate and wrap the DataFrame with HealthTable
-ht_conditions = HealthTable(condition_occurrence_df; omop_cdm_version="5.4")
+ht_conditions = HealthTable(condition_occurrence_df; omop_cdm_version="v5.4.0")
 
 
 # 1. Schema Inspection
@@ -69,11 +69,11 @@ end
 
 ## Preprocessing and Utilities Sketch
 
-Preprocessing utilities can operate on `OMOPCDMTable` objects (or their materialized versions), leveraging the `Tables.jl` interface and schema awareness derived via `Tables.schema`. Examples include:
+Preprocessing utilities can operate on `HealthTable` objects (or their materialized versions), leveraging the `Tables.jl` interface and schema awareness derived via `Tables.schema`. Examples include:
 
-- `one_hot_encode(table::OMOPCDMTable, column_symbol::Symbol; drop_original=true)`
-- `normalize_column(table::OMOPCDMTable, column_symbol::Symbol; method=:z_score)`
-- `apply_vocabulary_compression(table::OMOPCDMTable, column_symbol::Symbol, mapping_dict::Dict)`
-- `map_concepts(table::OMOPCDMTable, column_symbol::Symbol, concept_map::AbstractDict)`
+- `one_hot_encode(ht::HealthTable, column_symbol::Symbol; drop_original=true)`
+- `normalize_column(ht::HealthTable, column_symbol::Symbol; method=:z_score)`
+- `apply_vocabulary_compression(ht::HealthTable, column_symbol::Symbol, mapping_dict::Dict)`
+- `map_concepts(ht::HealthTable, column_symbol::Symbol, concept_map::AbstractDict)`
 
 These functions would align with the principle of optional, user triggered transformations, possibly controlled by keyword arguments.

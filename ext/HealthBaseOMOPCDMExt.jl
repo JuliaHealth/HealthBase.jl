@@ -6,12 +6,14 @@ using OMOPCommonDataModel
 using Serialization
 using InlineStrings
 using Dates
+using Statistics
 
-const OMOPCDM_VERSIONS = Dict{Any, Any}()
+# NOTE: In the future, replace this with OMOP CDM version info directly from OMOPCommonDataModel.jl dependencies.
+const OMOPCDM_VERSIONS = deserialize(joinpath(@__DIR__, "..", "assets", "version_info"))
 
 # Mapping OMOP CDM datatypes to Julia types
 const datatype_map = Dict(
-    "integer" => Int64, "Integer" => Int64, "bigint" => Int64,
+    "integer" => Int64, "Integer" => Int64, "bigint" => BigInt,
     "float" => Float64,
     "date" => Date, "datetime" => DateTime,
     "varchar(1)" => String, "varchar(2)" => String, "varchar(3)" => String,
@@ -23,7 +25,6 @@ const datatype_map = Dict(
 
 function __init__()
     @info "OMOP CDM extension for HealthBase has been loaded!"
-    merge!(OMOPCDM_VERSIONS, deserialize(joinpath(@__DIR__, "..", "assets", "version_info")))
 end
 
 """
@@ -50,7 +51,41 @@ columns with type mismatches. This behavior can be modified with the keyword arg
 - `HealthTable`: A new `HealthTable` instance with validated data and attached metadata.
 
 ## Examples
-Examples will be added in a future update as more functionality is integrated.
+
+1. Loading a DataFrame from scratch:
+```julia
+using DataFrames, HealthBase
+person_df = DataFrame(
+    person_id = [1, 2],
+    gender_concept_id = [8507, 8532],
+    year_of_birth = [1990, 1985],
+    month_of_birth = [1, 5],
+    day_of_birth = [1, 15],
+    birth_datetime = [DateTime(1990,1,1), DateTime(1985,5,15)],
+    race_concept_id = [8527, 8515],
+    ethnicity_concept_id = [38003563, 38003564]
+)
+ht = HealthTable(person_df; omop_cdm_version="v5.4.0")
+```
+
+2. Loading a DataFrame from a database query:
+```julia
+using DBInterface, DuckDB, DataFrames, HealthBase
+# db = DuckDB.DB("synthea.duckdb") # Example database file
+# person_df = DBInterface.execute(db, "SELECT * FROM person") |> DataFrame
+# ht = HealthTable(person_df; omop_cdm_version="v5.4.0")
+```
+
+3. Accessing column metadata:
+```julia
+# After constructing ht as above:
+colnames = names(ht.source)
+coltypes = eltype.(eachcol(ht.source))
+# OMOP metadata can be accessed from ht or its source columns if attached
+```
+
+4. Quick-fail/warning for bad data:
+# TODO: Will finalize the implementation soon and then add an example
 """
 function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="v5.4.0", disable_type_enforcement=false, collect_errors=true)
     if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
@@ -103,6 +138,62 @@ function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="v5.4.0"
     end
 
     return HealthBase.HealthTable(source=df, omop_cdm_version=omop_cdm_version)
+
 end
+
+# TODO: Add Documentation
+function HealthBase.one_hot_encode(ht::HealthTable; cols::Vector{Symbol}, drop_original::Bool=true)
+    df = copy(ht.source)
+    for col in cols
+        unique_vals = unique(skipmissing(df[!, col]))
+        for val in unique_vals
+            new_col = Symbol("$(col)_", string(val))
+            df[!, new_col] = df[!, col] .== val
+        end
+        if drop_original
+            select!(df, Not(col))
+        end
+    end
+    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
+end
+
+# TODO: Add Documentation
+function HealthBase.impute_missing(ht::HealthTable; cols::Vector{Symbol}, strategy::Symbol=:mean)
+    df = copy(ht.source)
+    for col in cols
+        if strategy == :mean
+            non_missing_vals = skipmissing(df[!, col])
+            if isempty(non_missing_vals)
+                throw(ArgumentError("Column '$col' has only missing values."))
+            end
+            mean_val = mean(non_missing_vals)
+            df[!, col] = coalesce.(df[!, col], mean_val)
+        else
+            throw(ArgumentError("Unsupported imputation strategy: $strategy"))
+        end
+    end
+    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
+end
+
+# TODO: Add Documentation
+function HealthBase.normalize_column(ht::HealthTable; cols::Vector{Symbol}, method::Symbol=:standard)
+    df = copy(ht.source)
+    for col in cols
+        values = skipmissing(df[!, col])
+        if method == :standard
+            mean_val = mean(values)
+            std_val = std(values)
+            if std_val == 0
+                throw(ArgumentError("Column '$col' has zero standard deviation."))
+            end
+            df[!, col] = (df[!, col] .- mean_val) ./ std_val
+        else
+            throw(ArgumentError("Unsupported normalization method: $method"))
+        end
+    end
+    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
+end
+
+# TODO: Add Other Preprocessing Utilities
 
 end

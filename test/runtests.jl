@@ -4,6 +4,8 @@ using Test
 using DataFrames
 using OMOPCommonDataModel
 using Dates
+using Statistics
+using Tables
 
 @testset "Exceptions" begin
     include("exceptions.jl")
