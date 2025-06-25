@@ -185,10 +185,35 @@ The study environment remains activated for you to immediately add packages.
 
 - `template::Symbol` - A template option specifying the structure of the the study. Available templates can be found by running `@doc(study_template)`.
 
+- `github_name::String` - the GitHub account you intend to host documentation at. You will need to manually enable the `gh-pages` deployment by going to settings/pages of the GitHub study repo, and choosing as "Source" the `gh-pages` branch. If a name is not specified, a prompt will appear.
+
+# Example
+
+```julia-repl
+julia> initialize_study("Cardiooncology", "Jacob S. Zelko, Jakub Mitura"; github_name = "TheCedarPrince", template=:observational)
+```
 """
-function HealthBase.initialize_study(path, authors = nothing; template::Symbol = :default)
+function HealthBase.initialize_study(path, authors = nothing; github_name = "PutYourGitHubNameHere", template::Symbol = :default)
     tpl = study_template(template).template
     ftg = study_template(template).folders_to_gitignore
+
+    if github_name == "PutYourGitHubNameHere"
+        @warn """
+        `github_name` is not specified. Docs will not be deployed.
+
+        To host the docs online, set the keyword `github_name` with the name of the GitHub account
+        you plan to upload at, and then manually enable the `gh-pages` deployment by going to
+        settings/pages of the GitHub repo, and choosing as "Source" the `gh-pages` branch.
+
+        You can skip this prompt by specifying `github_name` in the function call. For example:
+        `initialize_study("MyStudy", "Carlos", github_name = "JuliaHealth")`
+        """
+
+        print("Enter the name of your GitHub account (leave empty to skip): ")
+        input = readline()
+
+        github_name = isempty(input) ? github_name : input
+    end
 
     initialize_project(
         path;
@@ -196,7 +221,8 @@ function HealthBase.initialize_study(path, authors = nothing; template::Symbol =
         template = tpl,
         folders_to_gitignore = ftg,
         force = true,
-        add_docs = true
+        add_docs = true,
+        github_name = github_name
     )
     cd(path)
 end

@@ -1,7 +1,9 @@
+github_name = "foo"
+
 cd(@__DIR__)
 path = "test_study"
 
-initialize_study(path; template = :observational)
+initialize_study(path; github_name = github_name, template = :observational)
 quickactivate(path)
 
 @test cohortsdir() == abspath("data", "cohorts")
@@ -12,7 +14,7 @@ quickactivate(path)
 cd("..")
 rm("test_study", recursive = true, force = true)
 
-initialize_study(path; template = :llm)
+initialize_study(path; github_name = github_name, template = :llm)
 quickactivate(path)
 
 @test corpusdir() == abspath("data", "corpus")
@@ -28,7 +30,7 @@ quickactivate(path)
 cd("..")
 rm("test_study", recursive = true, force = true)
 
-@test_throws ErrorException initialize_study(path; template = :foobar)
+@test_throws ErrorException initialize_study(path; github_name = github_name, template = :foobar)
 
 STUDY_TEMPLATES = Base.get_extension(HealthBase, :HealthBaseDrWatsonExt).STUDY_TEMPLATES
 
