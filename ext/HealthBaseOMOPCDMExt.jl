@@ -145,7 +145,28 @@ function HealthBase.HealthTable(
 
 end
 
-# TODO: Add Documentation
+"""
+    one_hot_encode(ht::HealthTable; cols, drop_original=true)
+
+Convert categorical columns into one-hot Boolean indicator columns.
+
+# Arguments
+- `ht::HealthTable`: Input table to transform.
+
+# Keyword Arguments
+- `cols::Vector{Symbol}`: Names of categorical columns to encode.
+- `drop_original::Bool=true`: If `true`, the source categorical column is
+  removed after encoding.  If `false`, the original column is retained.
+
+# Returns
+- `HealthTable`: A copy of `ht` with additional dummy columns named
+  `"(col)_<value>"` for every unique, non-missing value.
+
+# Examples
+```julia
+ht_oh = one_hot_encode(ht; cols = [:condition_source_value], drop_original=false)
+```
+"""
 function HealthBase.one_hot_encode(
     ht::HealthTable; 
     cols::Vector{Symbol}, 
@@ -165,7 +186,37 @@ function HealthBase.one_hot_encode(
     return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
 end
 
-# TODO: Add Documentation
+"""
+    impute_missing(ht::HealthTable; cols, strategy=:mean)
+
+Fill in `missing` values of numeric columns using common statistics.
+
+# Arguments
+- `ht::HealthTable`: Table whose columns require imputation.
+
+# Keyword Arguments
+- `cols`: Either a vector of column symbols **or** a vector of
+  `pair`s mapping a column to a specific strategy, e.g.
+  `[:x => :median, :y => :max]`.
+- `strategy::Symbol=:mean`: Default strategy applied when `cols` is a
+  vector of symbols.
+
+Supported strategies:
+  • `:mean`   - arithmetic mean
+  • `:median` - median
+  • `:mode`   - most frequent value
+  • `:min`    - minimum (non-missing) value
+  • `:max`    - maximum (non-missing) value
+  
+# Returns
+- `HealthTable`: Copy of `ht` where all `missing` values in the selected
+  columns have been replaced.
+
+# Examples
+```julia
+ht_imp = impute_missing(ht; cols = [:systolic_bp, :diastolic_bp], strategy = :median)
+```
+"""
 function HealthBase.impute_missing(
     ht::HealthTable;
     cols::Union{Vector{Symbol}, Vector{Pair{Symbol,Symbol}}},
@@ -180,7 +231,7 @@ function HealthBase.impute_missing(
         vals = df[!, col]
         nonmiss = collect(skipmissing(vals))
         if isempty(nonmiss)
-            throw(ArgumentError("Column '$(col)' has only missing values – cannot impute."))
+            throw(ArgumentError("Column '$(col)' has only missing values - cannot impute."))
         end
 
         replacement = begin
@@ -188,6 +239,10 @@ function HealthBase.impute_missing(
                 mean(nonmiss)
             elseif strat == :median
                 median(nonmiss)
+            elseif strat == :min
+                minimum(nonmiss)
+            elseif strat == :max
+                maximum(nonmiss)
             elseif strat == :mode
                 mode_val = nothing
                 counts = Dict{Any,Int}()
@@ -199,7 +254,7 @@ function HealthBase.impute_missing(
                 end
                 mode_val
             else
-                throw(ArgumentError("Unsupported imputation strategy '$(strat)'. Supported: :mean, :median, :mode."))
+                throw(ArgumentError("Unsupported imputation strategy '$(strat)'. Supported: :mean, :median, :mode, :min, :max."))
             end
         end
         df[!, col] = coalesce.(vals, replacement)
@@ -208,7 +263,29 @@ function HealthBase.impute_missing(
     return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
 end
 
-# TODO: Add Documentation
+"""
+    apply_vocabulary_compression(ht::HealthTable; cols, min_freq=10, other_label="Other")
+
+Group infrequent categorical levels under a single *other* label.
+
+# Arguments
+- `ht::HealthTable`: Input table.
+
+# Keyword Arguments
+- `cols::Vector{Symbol}`: Columns to compress.
+- `min_freq::Integer=10`: Minimum frequency a value must have to remain
+  unchanged.
+- `other_label::AbstractString="Other"`: Label used to replace rare
+  values.
+
+# Returns
+- `HealthTable`: Table with compressed categorical levels.
+
+# Examples
+```julia
+ht_small = apply_vocabulary_compression(ht; cols=[:condition_source_value], min_freq=5)
+```
+"""
 function HealthBase.apply_vocabulary_compression(
     ht::HealthTable; 
     cols::Vector{Symbol}, 
@@ -228,7 +305,33 @@ function HealthBase.apply_vocabulary_compression(
     return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
 end
 
-# TODO: Add Documentation
+"""
+    map_concepts(ht::HealthTable; col, mapping, new_col=nothing, drop_original=false)
+
+Map raw concept IDs or codes to higher-level groups via `mapping`.
+
+# Arguments
+- `ht::HealthTable`: Input table.
+
+# Keyword Arguments
+- `col::Symbol`: Column containing the raw IDs/codes.
+- `mapping::AbstractDict`: Dict whose keys are raw IDs and whose values
+  are the desired mapped values.
+- `new_col::Union{Symbol,Nothing}=nothing`: Name of the destination
+  column.  If `nothing`, the source column is overwritten.
+- `drop_original::Bool=false`: If `true` and `new_col` is provided, the
+  source column is removed.
+
+# Returns
+- `HealthTable`: Table with the mapped column added or replaced.
+
+# Examples
+```julia
+mapping = Dict(316866 => "Hypertension", 201826 => "Diabetes")
+ht_grp = map_concepts(ht; col=:condition_concept_id, mapping=mapping,
+                      new_col=:condition_group, drop_original=true)
+```
+"""
 function HealthBase.map_concepts(
     ht::HealthTable;
     col::Symbol,
@@ -249,7 +352,27 @@ function HealthBase.map_concepts(
     return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
 end
 
-# TODO: Add Documentation
+"""
+    normalize_column(ht::HealthTable; cols, method=:standard)
+
+Scale numeric columns; currently only z-score (`:standard`) is supported.
+
+# Arguments
+- `ht::HealthTable`: Input table.
+
+# Keyword Arguments
+- `cols::Vector{Symbol}`: Columns to normalise.
+- `method::Symbol=:standard`: Normalisation method (`:standard` ⇒
+  subtract mean and divide by standard deviation).
+
+# Returns
+- `HealthTable`: Table with normalised numeric columns.
+
+# Examples
+```julia
+ht_z = normalize_column(ht; cols = [:systolic_bp, :diastolic_bp])
+```
+"""
 function HealthBase.normalize_column(ht::HealthTable; cols::Vector{Symbol}, method::Symbol=:standard)
     df = copy(ht.source)
     for col in cols

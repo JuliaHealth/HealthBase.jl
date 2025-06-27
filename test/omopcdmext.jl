@@ -1,6 +1,3 @@
-using Statistics
-using DataFrames
-
 @testset "HealthBaseOMOPCDMExt" begin
     # This DataFrame is compliant with the OMOP CDM v5.4.0 PERSON table schema.
     person_df_good = DataFrame(
@@ -150,6 +147,33 @@ using DataFrames
             ht_m2 = map_concepts(base_ht; col=:condition_concept_id, mapping=mapping, new_col=:condition_group, drop_original=true)
             @test :condition_concept_id ∉ names(ht_m2.source)
             @test ht_m2.source.condition_group[1] == "Hypertension"
+        end
+
+        @testset "impute_missing - min/max" begin
+            df_mm = DataFrame(x=[missing, 2.0, 3.0, missing])
+            ht_mm = HealthTable(df_mm)
+            ht_min = impute_missing(ht_mm; cols=[:x], strategy=:min)
+            @test ht_min.source.x[1] == 2.0
+            ht_max = impute_missing(ht_mm; cols=[:x], strategy=:max)
+            @test ht_max.source.x[4] == 3.0
+        end
+
+        @testset "impute_missing - all missing column" begin
+            df_allmiss = DataFrame(y = [missing, missing])
+            ht_allmiss = HealthTable(df_allmiss)
+            @test_throws ArgumentError impute_missing(ht_allmiss; cols=[:y])
+        end
+
+        @testset "normalize_column - constant column" begin
+            df_const = DataFrame(z = [5.0, 5.0, 5.0])
+            ht_const = HealthTable(df_const)
+            @test_throws ArgumentError normalize_column(ht_const; cols=[:z])
+        end
+
+        @testset "map_concepts - empty mapping" begin
+            empty_map = Dict{Int, String}()
+            ht_empty = map_concepts(base_ht; col=:condition_concept_id, mapping=empty_map)
+            @test ht_empty.source.condition_concept_id == base_ht.source.condition_concept_id
         end
     end
 
