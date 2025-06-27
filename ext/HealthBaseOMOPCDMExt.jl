@@ -87,7 +87,11 @@ coltypes = eltype.(eachcol(ht.source))
 4. Quick-fail/warning for bad data:
 # TODO: Will finalize the implementation soon and then add an example
 """
-function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="v5.4.0", disable_type_enforcement=false, collect_errors=true)
+function HealthBase.HealthTable(
+    df::DataFrame; omop_cdm_version::String="v5.4.0", 
+    disable_type_enforcement=false, 
+    collect_errors=true
+)
     if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
         throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))"))
     end
@@ -142,7 +146,11 @@ function HealthBase.HealthTable(df::DataFrame; omop_cdm_version::String="v5.4.0"
 end
 
 # TODO: Add Documentation
-function HealthBase.one_hot_encode(ht::HealthTable; cols::Vector{Symbol}, drop_original::Bool=true)
+function HealthBase.one_hot_encode(
+    ht::HealthTable; 
+    cols::Vector{Symbol}, 
+    drop_original::Bool=true
+)
     df = copy(ht.source)
     for col in cols
         unique_vals = unique(skipmissing(df[!, col]))
@@ -158,21 +166,87 @@ function HealthBase.one_hot_encode(ht::HealthTable; cols::Vector{Symbol}, drop_o
 end
 
 # TODO: Add Documentation
-function HealthBase.impute_missing(ht::HealthTable; cols::Vector{Symbol}, strategy::Symbol=:mean)
+function HealthBase.impute_missing(
+    ht::HealthTable;
+    cols::Union{Vector{Symbol}, Vector{Pair{Symbol,Symbol}}},
+    strategy::Symbol=:mean,
+)
+    df = copy(ht.source)
+
+    strat_pairs = cols isa Vector{Symbol} ? [c => strategy for c in cols] : cols
+
+    for (col, strat) in strat_pairs
+        @assert col in propertynames(df) "Column '$(col)' not found in table."
+        vals = df[!, col]
+        nonmiss = collect(skipmissing(vals))
+        if isempty(nonmiss)
+            throw(ArgumentError("Column '$(col)' has only missing values – cannot impute."))
+        end
+
+        replacement = begin
+            if strat == :mean
+                mean(nonmiss)
+            elseif strat == :median
+                median(nonmiss)
+            elseif strat == :mode
+                mode_val = nothing
+                counts = Dict{Any,Int}()
+                for v in nonmiss
+                    counts[v] = get(counts,v,0)+1
+                    if mode_val === nothing || counts[v] > counts[mode_val]
+                        mode_val = v
+                    end
+                end
+                mode_val
+            else
+                throw(ArgumentError("Unsupported imputation strategy '$(strat)'. Supported: :mean, :median, :mode."))
+            end
+        end
+        df[!, col] = coalesce.(vals, replacement)
+    end
+
+    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
+end
+
+# TODO: Add Documentation
+function HealthBase.apply_vocabulary_compression(
+    ht::HealthTable; 
+    cols::Vector{Symbol}, 
+    min_freq::Integer=10, 
+    other_label::AbstractString="Other"
+)
     df = copy(ht.source)
     for col in cols
-        if strategy == :mean
-            non_missing_vals = skipmissing(df[!, col])
-            if isempty(non_missing_vals)
-                throw(ArgumentError("Column '$col' has only missing values."))
-            end
-            mean_val = mean(non_missing_vals)
-            df[!, col] = coalesce.(df[!, col], mean_val)
-        else
-            throw(ArgumentError("Unsupported imputation strategy: $strategy"))
+        @assert col in propertynames(df) "Column '$(col)' not found in table."
+        counts = combine(groupby(df, col), nrow => :freq)
+        to_compress = counts[counts.freq .< min_freq, col]
+        if !isempty(to_compress)
+            mask = in(to_compress).(df[!, col])
+            df[mask, col] .= other_label
         end
     end
-    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
+    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
+end
+
+# TODO: Add Documentation
+function HealthBase.map_concepts(
+    ht::HealthTable;
+    col::Symbol,
+    mapping::AbstractDict,
+    new_col::Union{Symbol,Nothing}=nothing,
+    drop_original::Bool=false,
+)
+    @assert col in propertynames(ht.source) "Column '$(col)' not found in table."
+    df = copy(ht.source)
+
+    target_col = isnothing(new_col) ? col : new_col
+    df[!, target_col] = get.(Ref(mapping), df[!, col], df[!, col])
+
+    if drop_original && !isnothing(new_col)
+        select!(df, Not(col))
+    end
+
+    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
 end
 
 # TODO: Add Documentation
@@ -193,7 +267,5 @@ function HealthBase.normalize_column(ht::HealthTable; cols::Vector{Symbol}, meth
     end
     return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
 end
-
-# TODO: Add Other Preprocessing Utilities
 
 end
