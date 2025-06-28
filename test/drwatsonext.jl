@@ -1,7 +1,23 @@
-github_name = "foo"
-
 cd(@__DIR__)
+
+github_name = "foo"
 path = "test_study"
+
+@test_warn "" initialize_study(path; template = :llm);
+
+cd("..")
+rm("test_study", recursive = true, force = true)
+
+mktemp() do fname, f
+   write(f, "X")
+   seek(f, 0)
+   redirect_stdin(f) do
+        @test initialize_study(path; template = :llm) == nothing
+   end
+end
+
+cd("..")
+rm("test_study", recursive = true, force = true)
 
 initialize_study(path; github_name = github_name, template = :observational)
 quickactivate(path)
