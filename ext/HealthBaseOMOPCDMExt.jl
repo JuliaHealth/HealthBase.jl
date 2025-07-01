@@ -9,6 +9,8 @@ using Dates
 using Statistics
 import FeatureTransforms: 
     OneHotEncoding, apply_append
+using DuckDB               
+using DBInterface: execute
 
 # NOTE: In the future, replace this with OMOP CDM version info directly from OMOPCommonDataModel.jl dependencies.
 const OMOPCDM_VERSIONS = deserialize(joinpath(@__DIR__, "..", "assets", "version_info"))
@@ -229,6 +231,81 @@ function HealthBase.one_hot_encode(
 end
 
 """
+    map_concepts(ht::HealthTable, col::Symbol, new_col::String, conn::DuckDB.DB; drop_original::Bool = false, concept_table::String = "concept", schema::String = "main")
+
+Map concept IDs in a column to their corresponding concept names using the OMOP `concept` table.
+
+# Arguments
+- `ht::HealthTable`: The input table containing OMOP data.
+- `col::Symbol`: Column name in the HealthTable containing concept IDs (e.g. `:gender_concept_id`).
+- `new_col::String`: Name of the new column to store the mapped concept names (e.g. `"gender_name"`).
+- `conn::DuckDB.DB`: Active DuckDB connection to the OMOP database.
+- `drop_original::Bool`: If `true`, the original column (`col`) is dropped after mapping.
+- `concept_table::String`: Table name for OMOP concepts (default `"concept"`).
+- `schema::String`: Schema where the concept table resides (default `"main"`).
+
+# Returns
+- A new `HealthTable` with the concept names added in `new_col`.
+
+# Notes
+- Only direct mappings using concept IDs are supported.
+- If no matching concept names are found, `missing` is used.
+- For hierarchical mappings (e.g., via `concept_ancestor`), need to implement.
+
+# Example
+```julia
+conn = DBInterface.connect(DuckDB.DB, "path/to/db/.duckdb")
+
+# Map gender_concept_id to concept_name
+ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema = "dbt_synthea_dev")
+```
+"""
+
+function HealthBase.map_concepts(
+    ht::HealthTable,
+    col::Symbol,
+    new_col::String,
+    conn::DuckDB.DB;
+    drop_original::Bool = false,
+    concept_table::String = "concept",
+    schema::String = "main"
+)
+    df = copy(ht.source)
+    @assert col in propertynames(df) "Column '$(col)' not found in table."
+
+    ids = unique(skipmissing(df[!, col]))
+    if isempty(ids)
+        @warn "No concept_ids found in column $(col); returning original table."
+        return ht
+    end
+
+    id_list_str = join(ids, ", ")
+    query = """
+        SELECT concept_id, concept_name
+        FROM $schema.$concept_table
+        WHERE concept_id IN ($id_list_str)
+    """
+
+    result_df = DataFrame(execute(conn, query))
+    if isempty(result_df)
+        @warn "Concept mapping returned empty result. Check table, schema, and values."
+        return ht
+    end
+
+    mapping = Dict((cid => cname) for (cid, cname) in zip(result_df.concept_id, result_df.concept_name))
+    df[!, new_col] = map(x -> get(mapping, x, missing), df[!, col])
+
+    if drop_original
+        select!(df, Not(col))
+    end
+
+    return HealthBase.HealthTable(df;
+        omop_cdm_version = ht.omop_cdm_version,
+        disable_type_enforcement = true
+    )
+end
+
+"""
     apply_vocabulary_compression(ht::HealthTable; cols, min_freq=10, other_label="Other")
 
 Group infrequent categorical levels under a single *other* label.
@@ -268,44 +345,6 @@ function HealthBase.apply_vocabulary_compression(
         end
     end
     return HealthBase.HealthTable(df, omop_cdm_version=ht.omop_cdm_version)
-end
-
-"""
-    map_concepts(ht::HealthTable; col, conn, new_col=nothing, drop_original=false, concept_table="concept")
-
-Map OMOP `concept_id`s in `col` to their corresponding `concept_name`s by querying
-the `concept` table of an OMOP CDM database using FunSQL.jl.
-
-# Arguments
-- `ht::HealthTable`: Input OMOP-compatible table.
-
-# Keyword Arguments
-- `col::Symbol`: Column in `ht` containing concept IDs.
-- `conn`: A DBInterface-compatible connection (e.g., DuckDB.DB) to an OMOP database.
-- `new_col::Union{Symbol,Nothing}=nothing`: Name for the new column. If `nothing`, overwrites `col`.
-- `drop_original::Bool=false`: Drop the original column if `new_col` is provided.
-- `concept_table::AbstractString="concept"`: Name of the OMOP concept table.
-
-# Returns
-- `HealthTable`: A new table with concept names mapped.
-
-# Example
-```julia
-using DuckDB
-conn = DuckDB.DB("omop.duckdb")
-
-ht2 = map_concepts(ht; col=:condition_concept_id, conn=conn, new_col=:condition_name)
-```
-"""
-function HealthBase.map_concepts(
-    ht::HealthTable;
-    col::Symbol,
-    conn,
-    new_col::Union{Symbol,Nothing}=nothing,
-    drop_original::Bool=false,
-    concept_table::AbstractString="concept"
-)
-    # TODO: Implement this function
 end
 
 end

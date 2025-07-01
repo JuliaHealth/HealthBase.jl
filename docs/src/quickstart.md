@@ -8,7 +8,7 @@ NOTE: For the workflow to work, we need to load the trigger packages `DataFrames
 
 ```julia
 # First, load the trigger packages
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
 
 # Then, load HealthBase
 using HealthBase
@@ -40,6 +40,12 @@ wrong_df = DataFrame(
 
 ht = HealthTable(good_df, omop_cdm_version="v5.4.1")
 
+# OMOP CDM version metadata
+metadata(ht.source, "omop_cdm_version")
+
+# Will give column-specific metadata
+colmetadata(ht.source, :gender_concept_id)
+
 # This will throw an error
 ht = HealthTable(wrong_df, omop_cdm_version="v5.4.1")
 ```
@@ -48,20 +54,22 @@ ht = HealthTable(wrong_df, omop_cdm_version="v5.4.1")
 
 Now, we'll apply a series of transformations to clean and prepare the data.
 
-### Step A: One-hot encode categorical columns
+### Mapping Concepts
 
 Convert categorical codes into binary indicator columns.
 
 ```julia
-ht_ohe = one_hot_encode(ht; cols=[:gender_concept_id, :race_concept_id])
+conn = DBInterface.connect(DuckDB.DB, "synthea_1M_3YR.duckdb")
+
+ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema="dbt_synthea_dev")
 ```
 
-### Step B: Compress infrequent levels
+### One-hot encode categorical columns
 
-Group rare `race_concept_id` values under a single "Other" label.
+Convert categorical codes into binary indicator columns.
 
 ```julia
-ht_small = apply_vocabulary_compression(ht_ohe; cols=[:race_concept_id], min_freq=2)
+ht_ohe = one_hot_encode(ht_mapped; cols=[:gender_concept_id, :race_concept_id])
 ```
 
 ### For Developers: Interactive Use in the REPL
