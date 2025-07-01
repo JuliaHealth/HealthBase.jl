@@ -7,6 +7,8 @@ using Serialization
 using InlineStrings
 using Dates
 using Statistics
+import FeatureTransforms: 
+    OneHotEncoding, apply_append
 
 # NOTE: In the future, replace this with OMOP CDM version info directly from OMOPCommonDataModel.jl dependencies.
 const OMOPCDM_VERSIONS = deserialize(joinpath(@__DIR__, "..", "assets", "version_info"))
@@ -88,7 +90,8 @@ coltypes = eltype.(eachcol(ht.source))
 # TODO: Will finalize the implementation soon and then add an example
 """
 function HealthBase.HealthTable(
-    df::DataFrame; omop_cdm_version::String="v5.4.0", 
+    df::DataFrame; 
+    omop_cdm_version::String="v5.4.0", 
     disable_type_enforcement=false, 
     collect_errors=true
 )
@@ -97,24 +100,35 @@ function HealthBase.HealthTable(
     end
 
     omop_fields = OMOPCDM_VERSIONS[omop_cdm_version][:fields]
-    failed_columns = []
+    @assert !isempty(omop_fields) "OMOP CDM version $(omop_cdm_version) has no registered fields."
+    failed_columns = Vector{NamedTuple{(:colname, :type, :expected), Tuple{String, Any, Any}}}()
+    extra_columns = String[]
 
     for col in names(df)
         col_symbol = Symbol(col)
-        if haskey(omop_fields, col_symbol)
-            fieldinfo = omop_fields[col_symbol]
-            actual_type = eltype(df[!, col_symbol])
+        
+        if !haskey(omop_fields, col_symbol)
+            push!(extra_columns, col)
+            continue
+        end
 
-            if !haskey(fieldinfo, :cdmDatatype)
-                if !collect_errors
-                    throw(ArgumentError("Column '$(col)' is missing :cdmDatatype information in the schema."))
-                end
-                push!(failed_columns, (colname=col, type=actual_type, expected="<missing from schema>"))
+        fieldinfo = omop_fields[col_symbol]
+        actual_type = eltype(df[!, col_symbol])
+
+        if !haskey(fieldinfo, :cdmDatatype)
+            if !collect_errors
+                throw(ArgumentError("Column '$(col)' is missing :cdmDatatype information in the schema."))
+            end
+            push!(failed_columns, (colname=col, type=actual_type, expected="<missing from schema>"))
+        else
+            expected_string = fieldinfo[:cdmDatatype]
+
+            if !haskey(datatype_map, expected_string)
+                push!(failed_columns, (colname=col, type=actual_type, expected="Unrecognized OMOP datatype: $(expected_string)"))
             else
-                expected_string = fieldinfo[:cdmDatatype]
-                expected_type = get(datatype_map, expected_string, Any)
+                expected_type = datatype_map[expected_string]
 
-                if !(actual_type <: expected_type)
+                if !(actual_type <: Union{expected_type, Missing})
                     if !collect_errors
                         throw(ArgumentError("Column '$(col)' has type $(actual_type), but expected a subtype of $(expected_type)."))
                     end
@@ -124,16 +138,25 @@ function HealthBase.HealthTable(
 
             for (key, val) in fieldinfo
                 if !ismissing(val)
-                    colmetadata!(df, col_symbol, String(key), string(val); style=:note)
+                    colmetadata!(df, col_symbol, String(key), string(val))
                 end
             end
         end
     end
+        
+    validation_msgs = String[]
+
+    if !isempty(extra_columns)
+        push!(validation_msgs, "DataFrame contains columns not present in OMOP CDM schema: $(extra_columns)")
+    end
 
     if !isempty(failed_columns)
-        error_details = join(["Column '$(err.colname)': Has type $(err.type), expected subtype of $(err.expected)" for err in failed_columns], "\n")
-        full_message = "OMOP CDM type validation failed for the following columns:\n" * error_details
+        error_details = join(["Column '$(err.colname)': has type $(err.type), expected $(err.expected)" for err in failed_columns], "\n")
+        push!(validation_msgs, "OMOP CDM type validation failed for the following columns:\n" * error_details)
+    end
 
+    if !isempty(validation_msgs)
+        full_message = join(validation_msgs, "\n\n") * "\n"
         if disable_type_enforcement
             @warn full_message * "\nType enforcement is disabled. Unexpected behavior may occur."
         else
@@ -141,126 +164,68 @@ function HealthBase.HealthTable(
         end
     end
 
-    return HealthBase.HealthTable(source=df, omop_cdm_version=omop_cdm_version)
+    DataFrames.metadata!(df, "omop_cdm_version", omop_cdm_version)
 
-end
+    return HealthBase.HealthTable(df, omop_cdm_version)
+end   
 
 """
-    one_hot_encode(ht::HealthTable; cols, drop_original=true)
+    one_hot_encode(ht::HealthTable; cols, drop_original=true, return_features_only=false)
 
-Convert categorical columns into one-hot Boolean indicator columns.
+One-hot encode the categorical columns in `ht` using **FeatureTransforms.jl**.
+
+For every requested column the function appends Boolean indicator columns — one per
+unique (non-missing) level.  New columns are named `col__value`, e.g.
+`gender_concept_id__8507`.
+
+Boolean source columns are detected and skipped automatically with a warning.
 
 # Arguments
-- `ht::HealthTable`: Input table to transform.
+- `ht::HealthTable`: Table to transform (schema-aware).
 
 # Keyword Arguments
-- `cols::Vector{Symbol}`: Names of categorical columns to encode.
-- `drop_original::Bool=true`: If `true`, the source categorical column is
-  removed after encoding.  If `false`, the original column is retained.
+- `cols::Vector{Symbol}`: Categorical columns to encode.
+- `drop_original::Bool=true`: Drop the source columns after encoding.
+- `return_features_only::Bool=false`: If `true` return a **DataFrame** containing only the
+  encoded data; if `false` wrap the result in a `HealthTable` with
+  `disable_type_enforcement=true` (because the output is no longer standard OMOP CDM).
 
 # Returns
-- `HealthTable`: A copy of `ht` with additional dummy columns named
-  `"(col)_<value>"` for every unique, non-missing value.
+`DataFrame` or `HealthTable` depending on `return_features_only`.
 
-# Examples
+# Example
 ```julia
-ht_oh = one_hot_encode(ht; cols = [:condition_source_value], drop_original=false)
+ht_ohe = one_hot_encode(ht; cols = [:gender_concept_id, :race_concept_id])
+X     = one_hot_encode(ht; cols = [:gender_concept_id], return_features_only = true) # ML features
 ```
 """
 function HealthBase.one_hot_encode(
-    ht::HealthTable; 
-    cols::Vector{Symbol}, 
-    drop_original::Bool=true
-)
-    df = copy(ht.source)
-    for col in cols
-        unique_vals = unique(skipmissing(df[!, col]))
-        for val in unique_vals
-            new_col = Symbol("$(col)_", string(val))
-            df[!, new_col] = df[!, col] .== val
-        end
-        if drop_original
-            select!(df, Not(col))
-        end
-    end
-    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
-end
-
-"""
-    impute_missing(ht::HealthTable; cols, strategy=:mean)
-
-Fill in `missing` values of numeric columns using common statistics.
-
-# Arguments
-- `ht::HealthTable`: Table whose columns require imputation.
-
-# Keyword Arguments
-- `cols`: Either a vector of column symbols **or** a vector of
-  `pair`s mapping a column to a specific strategy, e.g.
-  `[:x => :median, :y => :max]`.
-- `strategy::Symbol=:mean`: Default strategy applied when `cols` is a
-  vector of symbols.
-
-Supported strategies:
-  • `:mean`   - arithmetic mean
-  • `:median` - median
-  • `:mode`   - most frequent value
-  • `:min`    - minimum (non-missing) value
-  • `:max`    - maximum (non-missing) value
-  
-# Returns
-- `HealthTable`: Copy of `ht` where all `missing` values in the selected
-  columns have been replaced.
-
-# Examples
-```julia
-ht_imp = impute_missing(ht; cols = [:systolic_bp, :diastolic_bp], strategy = :median)
-```
-"""
-function HealthBase.impute_missing(
     ht::HealthTable;
-    cols::Union{Vector{Symbol}, Vector{Pair{Symbol,Symbol}}},
-    strategy::Symbol=:mean,
+    cols::Vector{Symbol},
+    drop_original::Bool = true,
+    return_features_only::Bool = false
 )
     df = copy(ht.source)
+    missing = setdiff(cols, Symbol.(names(df)))
+    @assert isempty(missing) "Columns $(missing) not found."
 
-    strat_pairs = cols isa Vector{Symbol} ? [c => strategy for c in cols] : cols
-
-    for (col, strat) in strat_pairs
-        @assert col in propertynames(df) "Column '$(col)' not found in table."
-        vals = df[!, col]
-        nonmiss = collect(skipmissing(vals))
-        if isempty(nonmiss)
-            throw(ArgumentError("Column '$(col)' has only missing values - cannot impute."))
+    for col in cols
+        if eltype(df[!, col]) <: Bool
+            @warn "Column $col is already Boolean; skipping one-hot."
+            continue
         end
 
-        replacement = begin
-            if strat == :mean
-                mean(nonmiss)
-            elseif strat == :median
-                median(nonmiss)
-            elseif strat == :min
-                minimum(nonmiss)
-            elseif strat == :max
-                maximum(nonmiss)
-            elseif strat == :mode
-                mode_val = nothing
-                counts = Dict{Any,Int}()
-                for v in nonmiss
-                    counts[v] = get(counts,v,0)+1
-                    if mode_val === nothing || counts[v] > counts[mode_val]
-                        mode_val = v
-                    end
-                end
-                mode_val
-            else
-                throw(ArgumentError("Unsupported imputation strategy '$(strat)'. Supported: :mean, :median, :mode, :min, :max."))
-            end
-        end
-        df[!, col] = coalesce.(vals, replacement)
+        cats = unique(skipmissing(df[!, col]))
+        enc = OneHotEncoding(cats)
+        header = Symbol.(string(col, "__", c) for c in cats)
+        df = apply_append(df, enc; cols=[col], header=header)
     end
 
-    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
+    drop_original && select!(df, Not(cols))
+
+    return return_features_only ? df : HealthBase.HealthTable(
+        df; omop_cdm_version = ht.omop_cdm_version, disable_type_enforcement=true
+    )
 end
 
 """
@@ -302,93 +267,46 @@ function HealthBase.apply_vocabulary_compression(
             df[mask, col] .= other_label
         end
     end
-    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
+    return HealthBase.HealthTable(df, omop_cdm_version=ht.omop_cdm_version)
 end
 
 """
-    map_concepts(ht::HealthTable; col, mapping, new_col=nothing, drop_original=false)
+    map_concepts(ht::HealthTable; col, conn, new_col=nothing, drop_original=false, concept_table="concept")
 
-Map raw concept IDs or codes to higher-level groups via `mapping`.
+Map OMOP `concept_id`s in `col` to their corresponding `concept_name`s by querying
+the `concept` table of an OMOP CDM database using FunSQL.jl.
 
 # Arguments
-- `ht::HealthTable`: Input table.
+- `ht::HealthTable`: Input OMOP-compatible table.
 
 # Keyword Arguments
-- `col::Symbol`: Column containing the raw IDs/codes.
-- `mapping::AbstractDict`: Dict whose keys are raw IDs and whose values
-  are the desired mapped values.
-- `new_col::Union{Symbol,Nothing}=nothing`: Name of the destination
-  column.  If `nothing`, the source column is overwritten.
-- `drop_original::Bool=false`: If `true` and `new_col` is provided, the
-  source column is removed.
+- `col::Symbol`: Column in `ht` containing concept IDs.
+- `conn`: A DBInterface-compatible connection (e.g., DuckDB.DB) to an OMOP database.
+- `new_col::Union{Symbol,Nothing}=nothing`: Name for the new column. If `nothing`, overwrites `col`.
+- `drop_original::Bool=false`: Drop the original column if `new_col` is provided.
+- `concept_table::AbstractString="concept"`: Name of the OMOP concept table.
 
 # Returns
-- `HealthTable`: Table with the mapped column added or replaced.
+- `HealthTable`: A new table with concept names mapped.
 
-# Examples
+# Example
 ```julia
-mapping = Dict(316866 => "Hypertension", 201826 => "Diabetes")
-ht_grp = map_concepts(ht; col=:condition_concept_id, mapping=mapping,
-                      new_col=:condition_group, drop_original=true)
+using DuckDB
+conn = DuckDB.DB("omop.duckdb")
+
+ht2 = map_concepts(ht; col=:condition_concept_id, conn=conn, new_col=:condition_name)
 ```
 """
 function HealthBase.map_concepts(
     ht::HealthTable;
     col::Symbol,
-    mapping::AbstractDict,
+    conn,
     new_col::Union{Symbol,Nothing}=nothing,
     drop_original::Bool=false,
+    concept_table::AbstractString="concept"
 )
-    @assert col in propertynames(ht.source) "Column '$(col)' not found in table."
-    df = copy(ht.source)
-
-    target_col = isnothing(new_col) ? col : new_col
-    df[!, target_col] = get.(Ref(mapping), df[!, col], df[!, col])
-
-    if drop_original && !isnothing(new_col)
-        select!(df, Not(col))
-    end
-
-    return HealthBase.HealthTable(source=df, omop_cdm_version=ht.omop_cdm_version)
-end
-
-"""
-    normalize_column(ht::HealthTable; cols, method=:standard)
-
-Scale numeric columns; currently only z-score (`:standard`) is supported.
-
-# Arguments
-- `ht::HealthTable`: Input table.
-
-# Keyword Arguments
-- `cols::Vector{Symbol}`: Columns to normalise.
-- `method::Symbol=:standard`: Normalisation method (`:standard` ⇒
-  subtract mean and divide by standard deviation).
-
-# Returns
-- `HealthTable`: Table with normalised numeric columns.
-
-# Examples
-```julia
-ht_z = normalize_column(ht; cols = [:systolic_bp, :diastolic_bp])
-```
-"""
-function HealthBase.normalize_column(ht::HealthTable; cols::Vector{Symbol}, method::Symbol=:standard)
-    df = copy(ht.source)
-    for col in cols
-        values = skipmissing(df[!, col])
-        if method == :standard
-            mean_val = mean(values)
-            std_val = std(values)
-            if std_val == 0
-                throw(ArgumentError("Column '$col' has zero standard deviation."))
-            end
-            df[!, col] = (df[!, col] .- mean_val) ./ std_val
-        else
-            throw(ArgumentError("Unsupported normalization method: $method"))
-        end
-    end
-    return HealthBase.HealthTable(df; omop_cdm_version=ht.omop_cdm_version)
+    # TODO: Implement this function
 end
 
 end
+

@@ -1,8 +1,6 @@
 # Quickstart: Preprocessing OMOP Data
 
-This guide demonstrates a practical, end-to-end workflow for cleaning and transforming raw patient data into a format suitable for machine learning using the `HealthBase.jl` preprocessing utilities.
-
-### 1. Load Packages
+## 1. Load Packages
 
 First, start a Julia session in your project environment and load the necessary packages.
 
@@ -16,60 +14,61 @@ using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics,
 using HealthBase
 ```
 
-### 2. Create a Sample Dataset
+## 2. Create Example DataFrames
 
-We'll start with a sample `DataFrame` that mimics raw data from a clinical database. It includes missing values, categorical data, and different data types.
+We'll create two `DataFrame`s:
+
+* `good_df` — a minimal, valid slice of the OMOP *person* table.
+* `wrong_df` — intentionally invalid (wrong types & extra column) so you can see the constructor’s validation in action.
 
 ```julia
-raw_df = DataFrame(
-    person_id = 101:108,
-    gender_concept_id = [8507, 8532, 8507, 8532, 8507, 8532, 8507, 8507],
-    year_of_birth = [1985, 1992, 1985, 1978, 2000, 2001, 1992, 1988],
-    race_concept_id = [8527, 8515, 8527, 8516, 8527, 8515, 8516, 8527],
-    cholesterol = [189, 210, 240, missing, 195, 220, missing, 205.0]
+good_df = DataFrame(
+    person_id = 1:6,
+    gender_concept_id = [8507, 8507, 8532, 8532, 8507, 8532],
+    year_of_birth = [1980, 1995, 1990, 1975, 1988, 2001],
+    race_concept_id = [8527, 8515, 8527, 8516, 8527, 8516]
 )
 
-ht = HealthTable(source=raw_df, omop_cdm_version="v5.4.1")
+# Invalid DataFrame to test validation
+wrong_df = DataFrame(
+    person_id = ["1", "2"],
+    gender_concept_id = [8507, 8532],
+    year_of_birth = [1990, 1985],
+    race_concept_id = [8527, 8516],
+    illegal_extra_col = [true, false],
+)
+
+ht = HealthTable(good_df, omop_cdm_version="v5.4.1")
+
+# This will throw an error
+ht = HealthTable(wrong_df, omop_cdm_version="v5.4.1")
 ```
 
-### 3. Preprocessing Pipeline
+## 3. Preprocessing Pipeline
 
 Now, we'll apply a series of transformations to clean and prepare the data.
 
-#### Step A: Impute Missing Values
+### Step A: One-hot encode categorical columns
 
-First, we'll fill in the `missing` values for `cholesterol` using the mean of each column.
-
-```julia
-ht_imputed = impute_missing(ht; cols=[:cholesterol], strategy=:mean)
-```
-
-#### Step B: One-Hot Encode Categorical Features
-
-Next, we convert the categorical `gender_concept_id` and `race_concept_id` columns into numerical, binary columns.
+Convert categorical codes into binary indicator columns.
 
 ```julia
-ht_onehot = one_hot_encode(ht_imputed; cols=[:gender_concept_id, :race_concept_id])
+ht_ohe = one_hot_encode(ht; cols=[:gender_concept_id, :race_concept_id])
 ```
 
-#### Step C: Normalize Numerical Features
+### Step B: Compress infrequent levels
 
-Finally, we scale the `cholesterol` column to have a mean of 0 and a standard deviation of 1. This helps many machine learning algorithms perform better.
+Group rare `race_concept_id` values under a single "Other" label.
 
 ```julia
-ht_final = normalize_column(ht_onehot; cols=[:cholesterol])
-
-println("--- Final model-ready data ---")
-println(ht_final.source)
+ht_small = apply_vocabulary_compression(ht_ohe; cols=[:race_concept_id], min_freq=2)
 ```
-
-After these steps, `ht_final` contains a fully preprocessed, numerical dataset that is ready to be used for model training.
 
 ### For Developers: Interactive Use in the REPL
 
 When working with `HealthBase.jl` interactively in the Julia REPL, especially during development, it's important to load packages in the correct order to ensure that package extensions are activated.
 
-If you try to call a function from an extension (like `impute_missing`) and get a `MethodError`, it's likely because the extension was not loaded. To fix this, make sure you load the "trigger packages" **before** you load `HealthBase`.
+If you call a function from an extension (e.g. `one_hot_encode`) and get a `MethodError`, the extension probably wasn't loaded. To fix this, make sure you load the "trigger packages" **before** you load `HealthBase`.
 
 For the OMOP CDM extension, the trigger packages are `DataFrames`, `OMOPCommonDataModel`, `InlineStrings`, `Serialization`, `Statistics`, and `Dates`.
 
@@ -82,5 +81,5 @@ using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics,
 using HealthBase
 
 # Now, functions from the extension will be available
-# ht_imputed = impute_missing(ht; cols=[:cholesterol], strategy=:mean) # This will now work
+# ht_ohe = one_hot_encode(ht; cols=[:gender_concept_id]) # This will now work
 ```
