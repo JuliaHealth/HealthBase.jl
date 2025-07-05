@@ -9,7 +9,7 @@ integration with the Julia Tables.jl ecosystem.
 
 # Fields
 - `source::T`: The underlying data source (typically a `DataFrame`) containing the OMOP CDM table data.
-- `omop_cdm_version::String`: The OMOP CDM version string (e.g., "v5.4.0") to which the table conforms.
+- *OMOP CDM version*: stored in `metadata(source, "omop_cdm_version")` of the wrapped DataFrame.
 
 # Examples
 ```julia
@@ -19,16 +19,15 @@ person_df = DataFrame(
     gender_concept_id=[8507, 8532, 8507],
     year_of_birth=[1990, 1985, 2000]
 )
-ht = HealthTable(person_df; omop_cdm_version="v5.4.1")
+metadata!(person_df, "omop_cdm_version", "v5.4.1")
+ht = HealthTable(person_df)
 Tables.schema(ht) # Get the schema
 DataFrame(ht)     # Materialize as DataFrame
 ```
 """
 @kwdef struct HealthTable{T}
     source::T
-    omop_cdm_version::String
 end
-
 
 """
     Tables.istable(::Type{<:HealthTable})

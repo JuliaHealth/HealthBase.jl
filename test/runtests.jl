@@ -1,11 +1,14 @@
 using DrWatson
-using HealthBase
 using Test
+using InlineStrings
+using FeatureTransforms
+using Serialization
 using DataFrames
 using OMOPCommonDataModel
 using Dates
 using Statistics
 using Tables
+using HealthBase
 
 @testset "Exceptions" begin
     include("exceptions.jl")

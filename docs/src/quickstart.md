@@ -38,7 +38,8 @@ wrong_df = DataFrame(
     illegal_extra_col = [true, false],
 )
 
-ht = HealthTable(good_df, omop_cdm_version="v5.4.1")
+metadata!(good_df, "omop_cdm_version", "v5.4.1")
+ht = HealthTable(good_df)
 
 # OMOP CDM version metadata
 metadata(ht.source, "omop_cdm_version")
@@ -46,8 +47,12 @@ metadata(ht.source, "omop_cdm_version")
 # Will give column-specific metadata
 colmetadata(ht.source, :gender_concept_id)
 
-# This will throw an error
-ht = HealthTable(wrong_df, omop_cdm_version="v5.4.1")
+# This will throw an error (strict enforcement)
+metadata!(wrong_df, "omop_cdm_version", "v5.4.1")
+ht = HealthTable(wrong_df; disable_type_enforcement = false)
+
+# If you want to *load anyway* and just receive warnings, disable type enforcement:
+ht_relaxed = HealthTable(wrong_df; omop_cdm_version="v5.4.1", disable_type_enforcement = true)
 ```
 
 ## 3. Preprocessing Pipeline
@@ -61,7 +66,38 @@ Convert categorical codes into binary indicator columns.
 ```julia
 conn = DBInterface.connect(DuckDB.DB, "synthea_1M_3YR.duckdb")
 
-ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema="dbt_synthea_dev")
+# Single column, auto-suffixed column name (gender_concept_id_mapped)
+ht_mapped = map_concepts(ht, :gender_concept_id, conn; schema = "dbt_synthea_dev")
+
+# Multiple columns, custom new column names
+ht_mapped2 = map_concepts(ht, [:gender_concept_id, :race_concept_id], conn; new_cols = ["gender", "race"], schema = "dbt_synthea_dev", drop_original=true)
+
+# In-place variant
+map_concepts!(ht, [:gender_concept_id], conn; schema = "dbt_synthea_dev")
+```
+
+### Custom Concept Mapping (Manual, Without DB)
+Sometimes, you may want to map concept IDs using a custom dictionary instead of querying the database.
+
+```julia
+# Define custom mapping manually
+custom_map = Dict(8507 => "Male", 8532 => "Female")
+
+# Option 1: Add a new column using `Base.map`
+ht.source.gender_label = map(x -> get(custom_map, x, "Unknown"), ht.source.gender_concept_id)
+
+# Option 2: Use `Base.map!` with a new destination vector
+gender_labels = Vector{String}(undef, length(ht.source.gender_concept_id))
+map!(x -> get(custom_map, x, "Unknown"), gender_labels, ht.source.gender_concept_id)
+ht.source.gender_label = gender_labels
+```
+
+### Compress sparse categories (optional)
+
+Group infrequent levels into a single label (e.g. "Other") so downstream models aren’t overwhelmed by very rare categories.
+
+```julia
+ht_compressed = apply_vocabulary_compression(ht_mapped; cols = [:race_concept_id], min_freq = 2, other_label = "Other")
 ```
 
 ### One-hot encode categorical columns
@@ -69,7 +105,7 @@ ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema="db
 Convert categorical codes into binary indicator columns.
 
 ```julia
-ht_ohe = one_hot_encode(ht_mapped; cols=[:gender_concept_id, :race_concept_id])
+ht_ohe = one_hot_encode(ht_compressed; cols=[:gender_concept_id, :race_concept_id])
 ```
 
 ### For Developers: Interactive Use in the REPL
@@ -83,7 +119,7 @@ For the OMOP CDM extension, the trigger packages are `DataFrames`, `OMOPCommonDa
 **Correct Loading Order:**
 ```julia
 # First, load the trigger packages
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
 
 # Then, load HealthBase
 using HealthBase

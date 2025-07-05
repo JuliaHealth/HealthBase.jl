@@ -16,8 +16,8 @@ using DBInterface: execute
 const OMOPCDM_VERSIONS = deserialize(joinpath(@__DIR__, "..", "assets", "version_info"))
 
 # Mapping OMOP CDM datatypes to Julia types
-const datatype_map = Dict(
-    "integer" => Int64, "Integer" => Int64, "bigint" => BigInt,
+const DATATYPE_MAP = Dict(
+    "integer" => Int64, "Integer" => Int64, "bigint" => Int64,
     "float" => Float64,
     "date" => Date, "datetime" => DateTime,
     "varchar(1)" => String, "varchar(2)" => String, "varchar(3)" => String,
@@ -32,11 +32,11 @@ function __init__()
 end
 
 """
-    HealthTable(df::DataFrame; omop_cdm_version="v5.4.0", disable_type_enforcement=false, collect_errors=true)
+    HealthTable(df::DataFrame; omop_cdm_version=nothing, disable_type_enforcement=false, collect_errors=true)
 
 Constructs a `HealthTable` for an OMOP CDM dataset by validating the given `DataFrame`.
 
-This constructor validates the `DataFrame` against the specified OMOP CDM version. It checks that
+This constructor validates the `DataFrame` against the OMOP CDM schema. If `omop_cdm_version` is not provided, it will try to read the version from `metadata(df, "omop_cdm_version")`; if that is absent it defaults to "v5.4.0". It checks that
 column names are valid OMOP CDM fields and that their data types are compatible. It then
 attaches all available metadata from the OMOP CDM specification to the `DataFrame`'s columns.
 
@@ -47,7 +47,7 @@ columns with type mismatches. This behavior can be modified with the keyword arg
 - `df::DataFrame`: The `DataFrame` to wrap. It should contain columns corresponding to an OMOP CDM table.
 
 ## Keyword Arguments
-- `omop_cdm_version::String="v5.4.0"`: The OMOP CDM version to validate against.
+- `omop_cdm_version::Union{Nothing,String}=nothing`: Optional. Pass a specific version or leave `nothing` to auto-detect from the DataFrame metadata (falls back to "v5.4.0").
 - `disable_type_enforcement::Bool=false`: If `true`, type mismatches will emit a single comprehensive warning instead of throwing an error.
 - `collect_errors::Bool=true`: If `false`, the constructor will throw an error immediately upon finding the first column with a type mismatch. If `true` (the default), it will collect all errors and report them in a single message.
 
@@ -93,10 +93,14 @@ coltypes = eltype.(eachcol(ht.source))
 """
 function HealthBase.HealthTable(
     df::DataFrame; 
-    omop_cdm_version::String="v5.4.0", 
+    omop_cdm_version::Union{Nothing,String}=nothing, 
     disable_type_enforcement=false, 
     collect_errors=true
 )
+    if omop_cdm_version === nothing
+        omop_cdm_version = haskey(metadata(df), "omop_cdm_version") ? metadata(df, "omop_cdm_version") : "v5.4.0"
+    end
+
     if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
         throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))"))
     end
@@ -125,10 +129,10 @@ function HealthBase.HealthTable(
         else
             expected_string = fieldinfo[:cdmDatatype]
 
-            if !haskey(datatype_map, expected_string)
+            if !haskey(DATATYPE_MAP, expected_string)
                 push!(failed_columns, (colname=col, type=actual_type, expected="Unrecognized OMOP datatype: $(expected_string)"))
             else
-                expected_type = datatype_map[expected_string]
+                expected_type = DATATYPE_MAP[expected_string]
 
                 if !(actual_type <: Union{expected_type, Missing})
                     if !collect_errors
@@ -168,8 +172,8 @@ function HealthBase.HealthTable(
 
     DataFrames.metadata!(df, "omop_cdm_version", omop_cdm_version)
 
-    return HealthBase.HealthTable(df, omop_cdm_version)
-end   
+    return HealthBase.HealthTable{typeof(df)}(df)
+end
 
 """
     one_hot_encode(ht::HealthTable; cols, drop_original=true, return_features_only=false)
@@ -225,9 +229,7 @@ function HealthBase.one_hot_encode(
 
     drop_original && select!(df, Not(cols))
 
-    return return_features_only ? df : HealthBase.HealthTable(
-        df; omop_cdm_version = ht.omop_cdm_version, disable_type_enforcement=true
-    )
+    return return_features_only ? df : HealthBase.HealthTable{typeof(df)}(df)
 end
 
 """
@@ -263,47 +265,96 @@ ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema = "
 
 function HealthBase.map_concepts(
     ht::HealthTable,
-    col::Symbol,
-    new_col::String,
+    cols::Union{Symbol, Vector{Symbol}},
     conn::DuckDB.DB;
+    new_cols::Union{Nothing, String, Vector{String}} = nothing,
     drop_original::Bool = false,
+    suffix::String = "_mapped",
     concept_table::String = "concept",
     schema::String = "main"
 )
     df = copy(ht.source)
-    @assert col in propertynames(df) "Column '$(col)' not found in table."
+    _map_concepts!(df, cols, conn; new_cols, drop_original, suffix, concept_table, schema)
 
-    ids = unique(skipmissing(df[!, col]))
-    if isempty(ids)
-        @warn "No concept_ids found in column $(col); returning original table."
-        return ht
-    end
-
-    id_list_str = join(ids, ", ")
-    query = """
-        SELECT concept_id, concept_name
-        FROM $schema.$concept_table
-        WHERE concept_id IN ($id_list_str)
-    """
-
-    result_df = DataFrame(execute(conn, query))
-    if isempty(result_df)
-        @warn "Concept mapping returned empty result. Check table, schema, and values."
-        return ht
-    end
-
-    mapping = Dict((cid => cname) for (cid, cname) in zip(result_df.concept_id, result_df.concept_name))
-    df[!, new_col] = map(x -> get(mapping, x, missing), df[!, col])
-
-    if drop_original
-        select!(df, Not(col))
-    end
-
-    return HealthBase.HealthTable(df;
-        omop_cdm_version = ht.omop_cdm_version,
-        disable_type_enforcement = true
-    )
+    return HealthBase.HealthTable{typeof(df)}(df)
 end
+
+
+function HealthBase.map_concepts!(
+    ht::HealthTable,
+    cols::Union{Symbol, Vector{Symbol}},
+    conn::DuckDB.DB;
+    new_cols::Union{Nothing, String, Vector{String}} = nothing,
+    drop_original::Bool = false,
+    suffix::String = "_mapped",
+    concept_table::String = "concept",
+    schema::String = "main"
+)
+    _map_concepts!(
+        ht.source,
+        cols,
+        conn;
+        new_cols = new_cols,
+        drop_original = drop_original,
+        suffix = suffix,
+        concept_table = concept_table,
+        schema = schema
+    )
+    return ht
+end
+
+
+function _map_concepts!(
+    df::DataFrame,
+    cols::Union{Symbol, Vector{Symbol}},
+    conn::DuckDB.DB;
+    new_cols::Union{Nothing, String, Vector{String}} = nothing,
+    drop_original::Bool = false,
+    suffix::String = "_mapped",
+    concept_table::String = "concept",
+    schema::String = "main"
+)
+    cols = isa(cols, Symbol) ? [cols] : cols
+
+    if isnothing(new_cols)
+        new_cols = [string(col, suffix) for col in cols]
+    elseif isa(new_cols, String)
+        new_cols = [new_cols]
+    end
+
+    @assert length(cols) == length(new_cols) "Length of `cols` and `new_cols` must match."
+
+    for (col, new_col) in zip(cols, new_cols)
+        @assert col in propertynames(df) "Column '$col' not found in table."
+
+        ids = unique(skipmissing(df[!, col]))
+        if isempty(ids)
+            @warn "No concept_ids found in column $col; skipping."
+            continue
+        end
+
+        id_list_str = join(ids, ", ")
+        query = """
+            SELECT concept_id, concept_name
+            FROM $schema.$concept_table
+            WHERE concept_id IN ($id_list_str)
+        """
+
+        result_df = DataFrame(execute(conn, query))
+        if isempty(result_df)
+            @warn "Concept mapping for $col returned empty result. Check table, schema, and values."
+            continue
+        end
+
+        mapping = Dict((cid => cname) for (cid, cname) in zip(result_df.concept_id, result_df.concept_name))
+        df[!, new_col] = map(x -> get(mapping, x, missing), df[!, col])
+
+        if drop_original
+            select!(df, Not(col))
+        end
+    end
+end
+
 
 """
     apply_vocabulary_compression(ht::HealthTable; cols, min_freq=10, other_label="Other")
@@ -329,22 +380,31 @@ ht_small = apply_vocabulary_compression(ht; cols=[:condition_source_value], min_
 ```
 """
 function HealthBase.apply_vocabulary_compression(
-    ht::HealthTable; 
-    cols::Vector{Symbol}, 
-    min_freq::Integer=10, 
-    other_label::AbstractString="Other"
+    ht::HealthTable;
+    cols::Vector{Symbol},
+    min_freq::Integer = 10,
+    other_label::AbstractString = "Other",
+    new_cols::Union{Nothing,Symbol,Vector{Symbol}} = nothing,
+    suffix::AbstractString = "_compressed",
+    drop_original::Bool = false,
 )
     df = copy(ht.source)
+
     for col in cols
         @assert col in propertynames(df) "Column '$(col)' not found in table."
+        dest_col = Symbol(string(col), "_compressed")
         counts = combine(groupby(df, col), nrow => :freq)
         to_compress = counts[counts.freq .< min_freq, col]
         if !isempty(to_compress)
-            mask = in(to_compress).(df[!, col])
-            df[mask, col] .= other_label
+            df[!, dest_col] = map(x -> in(x, to_compress) ? other_label : string(x), df[!, col])
         end
     end
-    return HealthBase.HealthTable(df, omop_cdm_version=ht.omop_cdm_version)
+
+    if drop_original
+        select!(df, Not(cols))
+    end
+
+    return HealthBase.HealthTable{typeof(df)}(df)
 end
 
 end

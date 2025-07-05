@@ -43,5 +43,6 @@ end
 include("healthtable_interface.jl")
 include("drwatson_stub.jl")
 include("omopcdm_stub.jl")
+include("show.jl")
 
 end

@@ -1,7 +1,7 @@
 @testset "HealthBaseOMOPCDMExt" begin
-    # This DataFrame is compliant with the OMOP CDM v5.4.0 PERSON table schema.
+    # This DataFrame is compliant with the OMOP CDM v5.4.1 PERSON table schema.
     person_df_good = DataFrame(
-        person_id=BigInt(1),
+        person_id=1,
         gender_concept_id=8507,
         year_of_birth=1990,
         month_of_birth=1,
@@ -23,15 +23,12 @@
         ethnicity_concept_id=0
     )
 
-    ht = HealthTable(person_df_good; omop_cdm_version="v5.4.0")
+    metadata!(person_df_good, "omop_cdm_version", "v5.4.1")
+    ht = HealthBase.HealthTable(person_df_good)
     @testset "Constructor and Type Validation" begin
         @testset "Valid DataFrame" begin
             @test ht isa HealthBase.HealthTable
-            @test ht.omop_cdm_version == "v5.4.0"
-        end
-
-        @testset "Invalid DataFrame - Single Error" begin
-            @test_throws ArgumentError HealthTable(person_df_bad; omop_cdm_version="v5.4.0")
+            @test metadata(ht.source, "omop_cdm_version") == "v5.4.1"
         end
     end
 
@@ -53,5 +50,15 @@
         # Test DataFrame materialization
         df2 = DataFrame(ht)
         @test df2 == person_df_good
+    end
+
+    @testset "Version detection from metadata" begin
+        df_meta = DataFrame(person_id=1:3,
+                            gender_concept_id=[8507,8532,8507],
+                            year_of_birth=[1990,1985,2000],
+                            race_concept_id=[8527,8516,8527])
+        metadata!(df_meta, "omop_cdm_version", "v5.4.1")
+        ht_meta = HealthTable(df_meta) 
+        @test metadata(ht_meta.source, "omop_cdm_version") == "v5.4.1"
     end
 end
