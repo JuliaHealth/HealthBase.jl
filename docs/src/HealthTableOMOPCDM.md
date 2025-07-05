@@ -1,0 +1,27 @@
+# OMOP CDM Support for HealthTable
+
+## Core Goals & Features
+
+The proposed interface aims to provide:
+
+- Schema-Aware Validation: Instead of just wrapping your data, `HealthBase.jl` actively validates it against the official OMOP Common Data Model specification. "Schema-aware" means it understands the expected structure for a given OMOP CDM version (e.g., "v5.4.0") by using `OMOPCommonDataModel.jl`. This includes:
+    - Column Type Enforcement: It checks that the data types in your table (e.g., a `DataFrame`) match the official types. For example, it ensures that a `person_id` is an integer and a `condition_start_date` is a `Date`.
+    - Error Reporting: If there are mismatches, it provides clear, actionable error messages listing all columns that do not conform to the schema, helping you fix your data quickly.
+- Preprocessing Utilities: Built-in or easily integrable support for common preprocessing tasks, including:
+    - One-hot encoding.
+    - Normalization.
+    - Handling missing values.
+    - Vocabulary compression for high-cardinality categorical variables.
+- JuliaHealth Integration: Seamless interoperability with existing and future JuliaHealth tools, such as:
+    - `OMOPCDMCohortCreator.jl`
+    - `MLJ.jl` (for machine learning pipelines)
+    - `OHDSICohortExpressions.jl`
+- Foundation for Interoperability: Serve as a foundational layer for broader interoperability across the JuliaHealth ecosystem, supporting researchers working with OMOP CDM-styled data.
+
+## Proposed `Tables.jl` Interface Sketch
+
+Before data is wrapped by the `Tables.jl` interface described below, it's generally expected to undergo initial validation and preparation. This is typically handled by the `HealthBase.HealthTable` function (itself an extension within `HealthBase.jl` that uses `OMOPCommonDataModel.jl`). `HealthTable` takes a source (like a `DataFrame`), validates its structure and column types against the specific OMOP CDM table schema, attaches relevant metadata, and returns a conformed `DataFrame`.
+
+The `HealthTable` wrappers discussed next would then ideally consume this validated `DataFrame` (the output of `HealthTable`) to provide a standardized, schema-aware `Tables.jl` view for further operations and interoperability.
+
+The core idea is to define wrapper types around OMOP CDM data sources. Initially, we can focus on in-memory `DataFrame`s, but the design should be extensible to database connections or other `Tables.jl`-compatible sources. These wrapper types will implement the `Tables.jl` interface.
