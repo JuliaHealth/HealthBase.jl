@@ -2,39 +2,36 @@
 
 ## Typical Workflow
 
-The envisioned process for working with OMOP CDM data using these `HealthBase.jl` components typically follows these steps:
+The envisioned process for working with OMOP CDM data using the `HealthBase.jl` components typically follows these steps:
 
-1.  **Data Loading**:
-    Raw data is loaded into a suitable tabular structure, most commonly a `DataFrame`.
+1. **Data Loading**  
+   Raw data is loaded into a suitable tabular structure, most commonly a `DataFrame`.
 
-2.  **Validation and Conformance with `HealthTable`:**
-    The raw `DataFrame` is then processed by the `HealthBase.HealthTable` function. This function takes the `DataFrame` and an OMOP CDM version string (example: "5.4") as arguments, validating its structure and column types against the general OMOP CDM schema for that version.
-    *   It checks if the data types in those columns are compatible with the official OMOP CDM types (as defined in `OMOPCommonDataModel.jl`).
-    *   It can warn about discrepancies or, if `disable_type_enforcement=false`, potentially error or attempt safe conversions.
-    *   Crucially, it attaches metadata to the columns, indicating their official OMOP CDM types.
-    *   The output is a `DataFrame` that is now validated and conformed to the specified OMOP CDM table structure.
+2. **Validation and Wrapping with `HealthTable`**  
+   The raw `DataFrame` is then wrapped using `HealthBase.HealthTable`. This function takes the `DataFrame` and uses the attached OMOP CDM version (e.g., "v5.4.1") to validate its structure and column types against the OMOP CDM schema.
 
-3.  **Wrapping with `HealthTable`:**
-    The validated and conformed `DataFrame` (output from `HealthTable`) is then wrapped using the `HealthTable` to provide a schema-aware `Tables.jl` interface. This wrapper uses the same `OMOPCommonDataModel.jl` type to ensure consistency.
+   - It checks if the column types are compatible with the expected OMOP CDM types (from `OMOPCommonDataModel.jl`).
+   - If `disable_type_enforcement = false`, it will throw errors on mismatches or attempt safe conversions.
+   - It attaches metadata to columns indicating their OMOP CDM types.
+   - The result is a `HealthTable` instance that wraps the validated `DataFrame` and exposes the `Tables.jl` interface.
 
-4.  **Interacting via `Tables.jl`:**
-    Once wrapped, the `HealthTable` instance can be seamlessly used with any `Tables.jl`-compatible tools and standard `Tables.jl` functions
+3. **Interacting via `Tables.jl`**  
+   Once wrapped, the `HealthTable` instance can be seamlessly used with any `Tables.jl`-compatible tools and standard `Tables.jl` functions.
 
-5.  **Applying Preprocessing Utilities:**
-    Once the data is an `HealthTable`, common preprocessing steps essential for analysis or predictive modeling can be applied. These methods, built upon the `Tables.jl` interface, include:
-    *   One-hot encoding.
-    *   Handling of high-cardinality categorical variables.
-    *   Concept mapping utilities to group related codes (example: SNOMED conditions).
-    *   Normalization, missing value imputation, etc.
-    These utilities would typically return a new (or modified) `HealthTable` or a materialized `DataFrame`, ready for further use.
+4. **Applying Preprocessing Utilities**  
+   After wrapping, you can apply preprocessing steps essential for analysis or modeling. These include:
 
+   - One-hot encoding
+   - Handling of high-cardinality categorical variables
+   - Concept mapping utilities
 
-## Example Usage (Conceptual)
+   These utilities usually return a modified `HealthTable` or a materialized `DataFrame` ready for downstream use.
+
+## Example Usage
 
 ```julia
-using HealthBase # (once the OMOP Tables interface is part of it)
-using OMOPCommonDataModel
-using DataFrames # an example source
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
+using HealthBase
 
 # Assume 'condition_occurrence_df' is a DataFrame loaded from a CSV/database
 condition_occurrence_df = DataFrame(
@@ -46,8 +43,7 @@ condition_occurrence_df = DataFrame(
 )
 
 # Validate and wrap the DataFrame with HealthTable
-ht_conditions = HealthTable(condition_occurrence_df)
-
+ht_conditions = HealthTable(condition_occurrence_df; omop_cdm_version="v5.4.1")
 
 # 1. Schema Inspection
 sch = Tables.schema(ht_conditions)
@@ -63,17 +59,18 @@ end
 
 # 3. Integration with other packages (example: MLJ.jl)
 # 4. Materialization
-...
-# and so on
+# DataFrame(ht_conditions)
 ```
 
-## Preprocessing and Utilities Sketch
+## Preprocessing and Utilities
 
-Preprocessing utilities can operate on `HealthTable` objects (or their materialized versions), leveraging the `Tables.jl` interface and schema awareness derived via `Tables.schema`. Examples include:
+Preprocessing utilities can operate on `HealthTable` objects (or their materialized versions), leveraging the `Tables.jl` interface and schema awareness derived via `Tables.schema`.
+
+Examples include:
 
 - `one_hot_encode(ht::HealthTable, column_symbol::Symbol; drop_original=true)`
-- `normalize_column(ht::HealthTable, column_symbol::Symbol; method=:z_score)`
 - `apply_vocabulary_compression(ht::HealthTable, column_symbol::Symbol, mapping_dict::Dict)`
 - `map_concepts(ht::HealthTable, column_symbol::Symbol, concept_map::AbstractDict)`
+- `map_concepts!(ht::HealthTable, column_symbol::Symbol, concept_map::AbstractDict)` *(in-place version)*
 
-These functions would align with the principle of optional, user triggered transformations, possibly controlled by keyword arguments.
+These functions follow the principle of user-triggered, optional transformations configurable via keyword arguments.

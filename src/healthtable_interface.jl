@@ -9,18 +9,15 @@ integration with the Julia Tables.jl ecosystem.
 
 # Fields
 - `source::T`: The underlying data source (typically a `DataFrame`) containing the OMOP CDM table data.
-- *OMOP CDM version*: stored in `metadata(source, "omop_cdm_version")` of the wrapped DataFrame.
 
 # Examples
 ```julia
-using HealthBase, DataFrames
 person_df = DataFrame(
     person_id=1:3,
     gender_concept_id=[8507, 8532, 8507],
     year_of_birth=[1990, 1985, 2000]
 )
-metadata!(person_df, "omop_cdm_version", "v5.4.1")
-ht = HealthTable(person_df)
+ht = HealthTable(person_df; omop_cdm_version="v5.4.1")
 Tables.schema(ht) # Get the schema
 DataFrame(ht)     # Materialize as DataFrame
 ```

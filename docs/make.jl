@@ -15,7 +15,17 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
-        "Workflow Guides" => ["observational_template_workflow.md"],
+        "Quickstart" => "quickstart.md",
+
+        "Workflow Guides" => [
+            "Observational Template Workflow" => "observational_template_workflow.md",
+            "OMOP CDM Workflow" => "OMOPCDMWorkflow.md",
+        ],
+
+        "HealthTable System" => [
+            "HealthTable: General Tables.jl Interface" => "HealthTableGeneral.md",
+            "HealthTable: OMOP CDM Support" => "HealthTableOMOPCDM.md",
+        ],
         "API" => "api.md",
     ],
     # TODO: Update and configure doctests before next release
