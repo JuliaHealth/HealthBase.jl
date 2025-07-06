@@ -7,10 +7,9 @@ The core of the interface is the `HealthTable` struct.
 ```julia
 @kwdef struct HealthTable 
     source::DataFrame
-    omopcdm_version::String
     function HealthTable(source)
         # code goes here
-        return new(source, omopcdm_version)
+        return new(source)
     end
 end
 ```

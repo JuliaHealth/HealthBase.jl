@@ -46,7 +46,7 @@ condition_occurrence_df = DataFrame(
 )
 
 # Validate and wrap the DataFrame with HealthTable
-ht_conditions = HealthTable(condition_occurrence_df; omop_cdm_version="v5.4.0")
+ht_conditions = HealthTable(condition_occurrence_df)
 
 
 # 1. Schema Inspection

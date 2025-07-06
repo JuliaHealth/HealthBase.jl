@@ -52,7 +52,7 @@ metadata!(wrong_df, "omop_cdm_version", "v5.4.1")
 ht = HealthTable(wrong_df; disable_type_enforcement = false)
 
 # If you want to *load anyway* and just receive warnings, disable type enforcement:
-ht_relaxed = HealthTable(wrong_df; omop_cdm_version="v5.4.1", disable_type_enforcement = true)
+ht_relaxed = HealthTable(wrong_df; disable_type_enforcement = true)
 ```
 
 ## 3. Preprocessing Pipeline
