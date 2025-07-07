@@ -6,6 +6,8 @@ using Serialization
 using DataFrames
 using OMOPCommonDataModel
 using Dates
+using DBInterface
+using DuckDB
 using Statistics
 using Tables
 using HealthBase

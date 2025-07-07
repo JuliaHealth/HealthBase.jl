@@ -3,6 +3,7 @@ module HealthBase
 using Base: get_extension, @kwdef
 using Base.Experimental: register_error_hint
 using Tables
+using DataFrames
 
 include("exceptions.jl")
 

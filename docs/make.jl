@@ -1,11 +1,13 @@
 using HealthBase
 using Documenter
+using Tables
+using DataFrames
 
-DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase); recursive = true)
+DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase, Tables, DataFrames); recursive = true)
 
 makedocs(;
     modules = [HealthBase],
-    authors = "Jacob S. Zelko, Dilum Aluthge and contributors",
+    authors = "Jacob S. Zelko, Dilum Aluthge and contributors", 
     repo = "https://github.com/JuliaHealth/HealthBase.jl/blob/{commit}{path}#{line}",
     sitename = "HealthBase.jl",
     format = Documenter.HTML(;

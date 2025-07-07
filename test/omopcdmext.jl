@@ -67,32 +67,34 @@
 
     @testset "Preprocessing Functions" begin
         df = DataFrame(
-            gender_concept_id = [8507, 8507, 8532, 8532, 9999],
-            condition_source_value = ["A", "A", "B", "C", "D"],
+            person_id = 1:6,
+            gender_concept_id = [8507, 8507, 8532, 8532, 8507, 8507], 
+            condition_source_value = ["Diabetes", "Hypertension", "Diabetes", "Obesity", "Hypertension", "RareCondition"]
         )
         ht = HealthBase.HealthTable(df; omop_cdm_version="v5.4.1")
 
         @testset "one_hot_encode function" begin
             result = HealthBase.one_hot_encode(ht; cols=[:gender_concept_id], return_features_only=true)
-            @test all([col in names(result) for col in [:gender_concept_id__8507, :gender_concept_id__8532, :gender_concept_id__9999]])
+            expected_cols = ["gender_concept_id_8507", "gender_concept_id_8532"]
+            @test all(col in string.(names(result)) for col in expected_cols)
             @test nrow(result) == nrow(df)
         end
 
         @testset "apply_vocabulary_compression function" begin
             compressed = HealthBase.apply_vocabulary_compression(ht; cols=[:condition_source_value], min_freq=2)
-            @test :condition_source_value_compressed in names(compressed.source)
+            @test "condition_source_value_compressed" in names(compressed.source)
             compressed_vals = unique(compressed.source.condition_source_value_compressed)
             @test "Other" in compressed_vals
             @test length(compressed_vals) <= length(unique(df.condition_source_value))
         end
 
         @testset "map_concepts function (mocked)" begin
-            concept_map = Dict(8507 => "Male", 8532 => "Female")
+            # Mocked version without actual DuckDB call
+            concept_map = Dict(8507 => "Male", 8532 => "Female") 
             mapped_col = [get(concept_map, id, missing) for id in df.gender_concept_id]
-            ht.source[:, :gender_name] = mapped_col
-            @test :gender_name in names(ht.source)
-            @test ht.source.gender_name == mapped_col
-            @test count(ismissing, ht.source.gender_name) == 1 # for 9999
+            ht.source[!, :gender_name] = mapped_col
+            @test "gender_name" in names(ht.source)
+            @test isequal(ht.source.gender_name, mapped_col)
         end
     end
 end

@@ -2,12 +2,10 @@
 
 ## The `HealthTable` Struct
 
-The core of the interface is the `HealthTable` struct. 
+The core of the interface is the `HealthTable` struct.
 
-```julia
-@kwdef struct HealthTable{T}
-    source::T
-end
+```@docs
+HealthBase.HealthTable
 ```
 
 ## `Tables.jl` API Implementation
@@ -16,12 +14,14 @@ The `HealthTable` wrapper types will implement key `Tables.jl` methods:
 
 `HealthTable` implements the `Tables.jl` interface to ensure compatibility with the Julia data ecosystem:
 
-- `Tables.istable(::Type{HealthTable}) = true`
-- `Tables.rowaccess(::Type{HealthTable}) = true`
-- `Tables.rows(ht::HealthTable)`
-- `Tables.columnaccess(::Type{HealthTable}) = true`
-- `Tables.columns(ht::HealthTable)`
-- `Tables.schema(ht::HealthTable)`
-- `Tables.materializer(::Type{HealthTable}) = DataFrame`
+```@docs
+Tables.istable(::Type{<:HealthBase.HealthTable})
+Tables.rowaccess(::Type{<:HealthBase.HealthTable})
+Tables.rows(::HealthBase.HealthTable)
+Tables.columnaccess(::Type{<:HealthBase.HealthTable})
+Tables.columns(::HealthBase.HealthTable)
+Tables.schema(::HealthBase.HealthTable)
+Tables.materializer(::Type{<:HealthBase.HealthTable})
+```
 
 Source: https://tables.juliadata.org/stable/implementing-the-interface/
