@@ -15,7 +15,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 DBInterface = "2.2"
 DataFrames = "1"
-Dates = "1.11.0"
+Dates = "1.10"
 DrWatson = "2"
 DuckDB = "1"
 FeatureTransforms = "0.4.0"
