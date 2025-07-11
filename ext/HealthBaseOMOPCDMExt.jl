@@ -161,10 +161,6 @@ function HealthBase.HealthTable(
         
     validation_msgs = String[]
 
-    if !isempty(extra_columns)
-        push!(validation_msgs, "DataFrame contains columns not present in OMOP CDM schema: $(extra_columns)")
-    end
-
     if !isempty(failed_columns)
         error_details = join(["Column '$(err.colname)': has type $(err.type), expected $(err.expected)" for err in failed_columns], "\n")
         push!(validation_msgs, "OMOP CDM type validation failed for the following columns:\n" * error_details)

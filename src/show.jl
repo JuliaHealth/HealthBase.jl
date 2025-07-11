@@ -1,6 +1,17 @@
 using PrettyTables
 using DataFrames
 
+"""
+    Base.show(io::IO, ht::HealthTable)
+
+Pretty-print a `HealthTable` to any IO stream (REPL, file, etc.).
+
+- If the underlying table is empty, prints a friendly message.
+- Otherwise prints the full table using **PrettyTables.jl** with left-aligned columns.
+- Displays the OMOP-CDM version (from metadata) beneath the table when available.
+
+This method is purely for display; it returns `nothing`.
+"""
 function Base.show(io::IO, ht::HealthTable)
     df = ht.source
 

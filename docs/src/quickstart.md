@@ -65,7 +65,7 @@ wrong_df = DataFrame(
     gender_concept_id = [8507, 8532],
     year_of_birth = [1990, 1985],
     race_concept_id = [8527, 8516],
-    illegal_extra_col = [true, false],  # Invalid column
+    extra_col = [true, false],         # Extra column not in the OMOP schema
 )
 
 ht = HealthTable(good_df; omop_cdm_version="v5.4.1")
