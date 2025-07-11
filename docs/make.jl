@@ -2,11 +2,19 @@ using HealthBase
 using Documenter
 using Tables
 using DataFrames
+using OMOPCommonDataModel
+using FeatureTransforms
+using DuckDB
 
-DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase, Tables, DataFrames); recursive = true)
+DocMeta.setdocmeta!(HealthBase, :DocTestSetup, :(using HealthBase, Tables); recursive = true)
 
 makedocs(;
-    modules = [HealthBase],
+modules = [
+    HealthBase,
+    isdefined(Base, :get_extension) ?
+        Base.get_extension(HealthBase, :HealthBaseOMOPCDMExt) : HealthBase.HealthBaseOMOPCDMExt
+    ],
+    checkdocs = :none,
     authors = "Jacob S. Zelko, Dilum Aluthge and contributors", 
     repo = "https://github.com/JuliaHealth/HealthBase.jl/blob/{commit}{path}#{line}",
     sitename = "HealthBase.jl",
@@ -27,6 +35,7 @@ makedocs(;
         "HealthTable System" => [
             "HealthTable: General Tables.jl Interface" => "HealthTableGeneral.md",
             "HealthTable: OMOP CDM Support" => "HealthTableOMOPCDM.md",
+            "HealthTable: Preprocessing Functions" => "HealthTablePreprocessing.md",
         ],
         "API" => "api.md",
     ],

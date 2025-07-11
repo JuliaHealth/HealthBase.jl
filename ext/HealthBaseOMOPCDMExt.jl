@@ -6,7 +6,6 @@ using OMOPCommonDataModel
 using Serialization
 using InlineStrings
 using Dates
-using Statistics
 import FeatureTransforms: 
     OneHotEncoding, apply_append
 using DuckDB               
@@ -61,7 +60,7 @@ raised to help users correct their data. Once validated, the table is wrapped in
 
 1. Loading a DataFrame from scratch:
 ```julia
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Dates, FeatureTransforms, DBInterface, DuckDB
 using HealthBase
 
 person_df = DataFrame(
@@ -201,7 +200,7 @@ Boolean source columns are detected and skipped automatically with a warning.
   `disable_type_enforcement=true` (because the output is no longer standard OMOP CDM).
 
 # Returns
-`DataFrame` or `HealthTable` depending on `return_features_only`.
+- `DataFrame` or `HealthTable` depending on `return_features_only`.
 
 # Example
 ```julia
@@ -239,7 +238,8 @@ end
 """
     map_concepts(ht::HealthTable, col::Symbol, new_col::String, conn::DuckDB.DB; drop_original::Bool = false, concept_table::String = "concept", schema::String = "main")
 
-Map concept IDs in a column to their corresponding concept names using the OMOP `concept` table.
+Map concept IDs in a column to their corresponding concept names using the OMOP `concept` table. Only direct mappings using concept IDs are supported.
+
 
 # Arguments
 - `ht::HealthTable`: Input OMOP data table.
@@ -255,11 +255,6 @@ Map concept IDs in a column to their corresponding concept names using the OMOP 
 
 # Returns
 - A new `HealthTable` with the concept names added in `new_col`.
-
-# Notes
-- Only direct mappings using concept IDs are supported.
-- If no matching concept names are found, `missing` is used.
-- For hierarchical mappings (e.g., via `concept_ancestor`), need to implement.
 
 # Example
 ```julia
@@ -303,6 +298,14 @@ In-place version of `map_concepts`. Maps concept IDs to human-readable names usi
 
 # Returns
 - The mutated `HealthTable`.
+
+# Example
+```julia
+conn = DBInterface.connect(DuckDB.DB, "path/to/db/.duckdb")
+
+# Map gender_concept_id to concept_name in-place
+map_concepts!(ht, :gender_concept_id, conn; new_cols="gender_name", schema="dbt_synthea_dev")
+```
 """
 function HealthBase.map_concepts!(
     ht::HealthTable,
@@ -401,7 +404,6 @@ end
     apply_vocabulary_compression(ht::HealthTable; cols, min_freq=10, other_label="Other")
 
 Group infrequent categorical levels under a single *other* label.
-
 
 # Arguments
 - `ht::HealthTable`: Input data table.

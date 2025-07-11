@@ -38,7 +38,7 @@ These packages enable HealthBase's extensions, which power important features li
 
 ```julia
 # First, load the trigger packages
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Dates, FeatureTransforms, DBInterface, DuckDB
 
 # Then, load HealthBase
 using HealthBase
@@ -48,8 +48,8 @@ using HealthBase
 
 We'll create two `DataFrame`s:
 
-* `good_df` - a minimal, valid slice of the OMOP *person* table.
-* `wrong_df` - intentionally invalid (wrong types & extra column) so you can see the constructor’s validation in action.
+- `good_df` - a minimal, valid slice of the OMOP _person_ table.
+- `wrong_df` - intentionally invalid (wrong types & extra column) so you can see the constructor’s validation in action.
 
 ```julia
 good_df = DataFrame(
@@ -147,7 +147,7 @@ When working interactively in the REPL during development:
 
 ```julia
 # Correct load order for extensions to work:
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Dates, FeatureTransforms, DBInterface, DuckDB
 using HealthBase
 
 # Now this will work:

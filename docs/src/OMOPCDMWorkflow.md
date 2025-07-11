@@ -30,7 +30,7 @@ The envisioned process for working with OMOP CDM data using the `HealthBase.jl` 
 ## Example Usage
 
 ```julia
-using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Statistics, Dates, FeatureTransforms, DBInterface, DuckDB
+using DataFrames, OMOPCommonDataModel, InlineStrings, Serialization, Dates, FeatureTransforms, DBInterface, DuckDB
 using HealthBase
 
 # Assume 'condition_occurrence_df' is a DataFrame loaded from a CSV/database
