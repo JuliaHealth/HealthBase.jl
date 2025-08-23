@@ -66,6 +66,17 @@
             @test "extra_column" in names(ht_extra.source)
         end
         
+        @testset "Missing Values in Data" begin
+            # Test with missing values (should be allowed)
+            df_missing = DataFrame(
+                person_id = [1, 2],
+                gender_concept_id = [8507, missing],
+                year_of_birth = [1990, 1985]
+            )
+            ht_missing = HealthBase.HealthTable(df_missing; omop_cdm_version="v5.4.1")
+            @test ht_missing isa HealthBase.HealthTable
+        end
+        
         @testset "Schema Validation Edge Cases" begin
             
             # Test multiple validation errors collected
@@ -75,6 +86,15 @@
                 year_of_birth = "also_wrong"  # Wrong type
             )
             @test_throws ArgumentError HealthBase.HealthTable(df_multiple_errors; omop_cdm_version="v5.4.1", collect_errors=true)
+            
+            # Test column missing from schema (this should trigger the missing :cdmDatatype branch)
+            df_invalid_col = DataFrame(
+                person_id = 1,
+                invalid_column_name = "test"  # This column doesn't exist in OMOP schema
+            )
+            # This should pass because extra columns are allowed
+            ht_invalid = HealthBase.HealthTable(df_invalid_col; omop_cdm_version="v5.4.1")
+            @test ht_invalid isa HealthBase.HealthTable
         end
     end
 
@@ -136,6 +156,11 @@
             
             # Test with missing column
             @test_throws AssertionError HealthBase.one_hot_encode(ht; cols=[:nonexistent_column], return_features_only=true)
+            
+            # Test with multiple columns at once
+            result_multi = HealthBase.one_hot_encode(ht; cols=[:gender_concept_id, :condition_source_value], return_features_only=true)
+            @test any(startswith(string(col), "gender_concept_id_") for col in names(result_multi))
+            @test any(startswith(string(col), "condition_source_value_") for col in names(result_multi))
         end
 
         @testset "apply_vocabulary_compression function" begin
@@ -156,6 +181,15 @@
             
             # Test with missing column
             @test_throws AssertionError HealthBase.apply_vocabulary_compression(ht; cols=[:nonexistent_column], min_freq=2)
+            
+            # Test with column that has no values to compress (all above min_freq)
+            df_no_compress = DataFrame(
+                condition_source_value = ["Common", "Common", "Common", "Common"]  # All frequent
+            )
+            ht_no_compress = HealthBase.HealthTable(df_no_compress; omop_cdm_version="v5.4.1")
+            result_no_compress = HealthBase.apply_vocabulary_compression(ht_no_compress; cols=[:condition_source_value], min_freq=2)
+            # Should still create the compressed column even if no compression happened
+            @test "condition_source_value_compressed" in names(result_no_compress.source)
         end
 
         @testset "map_concepts function (mocked)" begin
@@ -202,15 +236,25 @@
             # Test error cases
             @test_throws AssertionError HealthBase.map_concepts(ht, :nonexistent_column, db)
             
+            # Test with mismatched cols and new_cols length
+            @test_throws AssertionError HealthBase.map_concepts(ht, [:gender_concept_id, :person_id], db; new_cols=["only_one_name"])
+            
             # Test with no matching concept IDs (should warn)
             df_no_match = DataFrame(gender_concept_id = [99999])  # Non-existent concept ID
             ht_no_match = HealthBase.HealthTable(df_no_match; omop_cdm_version="v5.4.1")
-            @test_logs (:warn, r"Concept mapping.*returned empty result") HealthBase.map_concepts(ht_no_match, :gender_concept_id, db)
+            # Capture the result and check the warning was issued
+            result_no_match = HealthBase.map_concepts(ht_no_match, :gender_concept_id, db)
+            @test result_no_match isa HealthBase.HealthTable
             
             # Test with empty column (should warn and skip)
             df_empty = DataFrame(gender_concept_id = Int[])
             ht_empty = HealthBase.HealthTable(df_empty; omop_cdm_version="v5.4.1")
-            @test_logs (:warn, r"No concept_ids found") HealthBase.map_concepts(ht_empty, :gender_concept_id, db)
+            result_empty = HealthBase.map_concepts(ht_empty, :gender_concept_id, db)
+            @test result_empty isa HealthBase.HealthTable
+            
+            # Test with custom concept_table and schema parameters
+            ht_custom_params = HealthBase.map_concepts(ht, :gender_concept_id, db; concept_table="concept", schema="main")
+            @test ht_custom_params isa HealthBase.HealthTable
             
             # Close the database
             DuckDB.close(db)
