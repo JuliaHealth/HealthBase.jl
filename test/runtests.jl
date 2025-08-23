@@ -15,6 +15,14 @@ using HealthBase
     include("exceptions.jl")
 end
 
+@testset "HealthTable Interface" begin
+    include("healthtable_interface.jl")
+end
+
+@testset "HealthTable Show Method" begin
+    include("show.jl")
+end
+
 @testset "HealthBaseDrWatsonExt" begin
     include("drwatsonext.jl")
 end
