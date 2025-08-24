@@ -170,6 +170,69 @@
             @test_logs (:warn, r"Type enforcement is disabled") HealthBase.HealthTable(person_df_bad; disable_type_enforcement=true)
         end
         
+        @testset "Internal Schema Validation Coverage" begin
+            # Get the extension to access internal constants
+            ext = Base.get_extension(HealthBase, :HealthBaseOMOPCDMExt)
+            
+            if !isnothing(ext)
+                # Access the OMOPCDM_VERSIONS constant from the extension
+                omop_versions = getfield(ext, :OMOPCDM_VERSIONS)
+                
+                # Create a test scenario by making a copy and corrupting it temporarily
+                if haskey(omop_versions, "v5.4.1")
+                    original_fields = omop_versions["v5.4.1"][:fields]
+                    
+                    # Create a corrupted version for testing
+                    corrupted_fields = copy(original_fields)
+                    if haskey(corrupted_fields, :person_id)
+                        # Remove cdmDatatype from person_id field to trigger 
+                        original_person_field = corrupted_fields[:person_id]
+                        corrupted_person_field = Dict{Symbol, Any}()
+                        for (k, v) in original_person_field
+                            if k != :cdmDatatype  # Skip cdmDatatype to trigger the error
+                                corrupted_person_field[k] = v
+                            end
+                        end
+                        corrupted_fields[:person_id] = corrupted_person_field
+                        
+                        # Temporarily replace the schema
+                        corrupted_version = Dict{Symbol, Any}(:fields => corrupted_fields)
+                        omop_versions["v5.4.1"] = corrupted_version
+                        
+                        # Test the missing cdmDatatype error path 
+                        df_test = DataFrame(person_id=1)
+                        @test_throws ArgumentError HealthBase.HealthTable(df_test; omop_cdm_version="v5.4.1", collect_errors=false)
+                        
+                        # Test the missing cdmDatatype with collect_errors=true
+                        @test_throws ArgumentError HealthBase.HealthTable(df_test; omop_cdm_version="v5.4.1", collect_errors=true)
+                        
+                        # Restore original schema
+                        omop_versions["v5.4.1"] = Dict{Symbol, Any}(:fields => original_fields)
+                    end
+                    
+                    # Now test unrecognized datatype (line 141)
+                    corrupted_fields_2 = copy(original_fields)
+                    if haskey(corrupted_fields_2, :person_id)
+                        # Add an unrecognized datatype to trigger line 141
+                        corrupted_person_field_2 = copy(corrupted_fields_2[:person_id])
+                        corrupted_person_field_2[:cdmDatatype] = "INVALID_DATATYPE_XYZ"
+                        corrupted_fields_2[:person_id] = corrupted_person_field_2
+                        
+                        # Temporarily replace the schema
+                        corrupted_version_2 = Dict{Symbol, Any}(:fields => corrupted_fields_2)
+                        omop_versions["v5.4.1"] = corrupted_version_2
+                        
+                        # Test the unrecognized datatype error path 
+                        df_test2 = DataFrame(person_id=1)
+                        @test_throws ArgumentError HealthBase.HealthTable(df_test2; omop_cdm_version="v5.4.1", collect_errors=true)
+                        
+                        # Restore original schema
+                        omop_versions["v5.4.1"] = Dict{Symbol, Any}(:fields => original_fields)
+                    end
+                end
+            end
+        end
+        
         @testset "map_concepts Edge Cases" begin
             # Set up test database with concept table
             db = DuckDB.DB()
