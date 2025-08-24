@@ -161,4 +161,59 @@
             DuckDB.close(db)
         end
     end
+    
+    @testset "Edge Cases and Error Handling" begin
+        @testset "HealthTable Constructor Error Paths" begin
+            @test_throws ArgumentError HealthBase.HealthTable(person_df_good; omop_cdm_version="v999.0")
+            
+            # Test with disable_type_enforcement=true for warning path
+            @test_logs (:warn, r"Type enforcement is disabled") HealthBase.HealthTable(person_df_bad; disable_type_enforcement=true)
+        end
+        
+        @testset "map_concepts Edge Cases" begin
+            # Set up test database with concept table
+            db = DuckDB.DB()
+            DuckDB.execute(db, "CREATE TABLE concept (concept_id INTEGER, concept_name VARCHAR)")
+            DuckDB.execute(db, "INSERT INTO concept VALUES (8507, 'Male')")
+            
+            df_empty = DataFrame(empty_col=[missing, missing])
+            ht_empty = HealthBase.HealthTable(df_empty; omop_cdm_version="v5.4.1")
+            
+            @test_logs (:warn, r"No concept_ids found") HealthBase.map_concepts!(ht_empty, :empty_col, db; new_cols="mapped_empty")
+            
+            df_nonexistent = DataFrame(nonexistent_ids=[99999])
+            ht_nonexistent = HealthBase.HealthTable(df_nonexistent; omop_cdm_version="v5.4.1")
+            
+            # When mapping fails, the column is NOT added (the function continues/skips)
+            HealthBase.map_concepts!(ht_nonexistent, :nonexistent_ids, db; new_cols="mapped_nonexistent")
+            @test !("mapped_nonexistent" in names(ht_nonexistent.source))  # Column should NOT be added when mapping fails
+            
+            # Test drop_original=true for map_concepts!
+            df_drop = DataFrame(concept_col=[8507])
+            ht_drop = HealthBase.HealthTable(df_drop; omop_cdm_version="v5.4.1")
+            HealthBase.map_concepts!(ht_drop, :concept_col, db; new_cols="mapped_col", drop_original=true)
+            @test !("concept_col" in names(ht_drop.source))  # Original column should be dropped
+            @test "mapped_col" in names(ht_drop.source)
+            
+            DuckDB.close(db)
+        end
+        
+        @testset "apply_vocabulary_compression drop_original" begin
+            df_compress = DataFrame(
+                col1=["A", "A", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"],
+                col2=["X", "X", "X", "Y", "Z", "Z", "Z", "Z", "Z", "Z", "Z", "Z", "Z"]
+            )
+            ht_compress = HealthBase.HealthTable(df_compress; omop_cdm_version="v5.4.1")
+            
+            # Apply compression with drop_original=true
+            ht_result = HealthBase.apply_vocabulary_compression(ht_compress; cols=[:col1, :col2], min_freq=3, drop_original=true)
+            
+            # Original columns should be dropped
+            @test !("col1" in names(ht_result.source))
+            @test !("col2" in names(ht_result.source))
+            # Compressed columns should exist
+            @test "col1_compressed" in names(ht_result.source)
+            @test "col2_compressed" in names(ht_result.source)
+        end
+    end
 end
