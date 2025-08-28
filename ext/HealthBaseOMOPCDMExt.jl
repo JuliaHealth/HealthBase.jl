@@ -6,9 +6,8 @@ using OMOPCommonDataModel
 using Serialization
 using InlineStrings
 using Dates
-import FeatureTransforms: 
-    OneHotEncoding, apply_append
-using DuckDB               
+import FeatureTransforms: OneHotEncoding, apply_append
+using DuckDB
 using DBInterface: execute
 
 # NOTE: In the future, replace this with OMOP CDM version info directly from OMOPCommonDataModel.jl dependencies.
@@ -16,14 +15,26 @@ const OMOPCDM_VERSIONS = deserialize(joinpath(@__DIR__, "..", "assets", "version
 
 # Mapping OMOP CDM datatypes to Julia types
 const DATATYPE_MAP = Dict(
-    "integer" => Int64, "Integer" => Int64, "bigint" => Int64,
+    "integer" => Int64,
+    "Integer" => Int64,
+    "bigint" => Int64,
     "float" => Float64,
-    "date" => Date, "datetime" => DateTime,
-    "varchar(1)" => String, "varchar(2)" => String, "varchar(3)" => String,
-    "varchar(9)" => String, "varchar(10)" => String, "varchar(20)" => String,
-    "varchar(25)" => String, "varchar(50)" => String, "varchar(80)" => String,
-    "varchar(250)" => String, "varchar(255)" => String, "varchar(1000)" => String,
-    "varchar(2000)" => String, "varchar(MAX)" => String
+    "date" => Date,
+    "datetime" => DateTime,
+    "varchar(1)" => String,
+    "varchar(2)" => String,
+    "varchar(3)" => String,
+    "varchar(9)" => String,
+    "varchar(10)" => String,
+    "varchar(20)" => String,
+    "varchar(25)" => String,
+    "varchar(50)" => String,
+    "varchar(80)" => String,
+    "varchar(250)" => String,
+    "varchar(255)" => String,
+    "varchar(1000)" => String,
+    "varchar(2000)" => String,
+    "varchar(MAX)" => String,
 )
 
 function __init__()
@@ -104,23 +115,28 @@ ht = HealthTable(df; disable_type_enforcement = true)
 Use disable_type_enforcement=true if you're exploring or cleaning data but for modeling or analysis, validated types are strongly recommended.
 """
 function HealthBase.HealthTable(
-    df::DataFrame; 
-    omop_cdm_version::String="v5.4.0", 
-    disable_type_enforcement=false, 
-    collect_errors=true
+    df::DataFrame;
+    omop_cdm_version::String = "v5.4.0",
+    disable_type_enforcement = false,
+    collect_errors = true,
 )
     if !haskey(OMOPCDM_VERSIONS, omop_cdm_version)
-        throw(ArgumentError("OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))"))
+        throw(
+            ArgumentError(
+                "OMOP CDM version '$(omop_cdm_version)' is not supported. Available versions: $(keys(OMOPCDM_VERSIONS))",
+            ),
+        )
     end
 
     omop_fields = OMOPCDM_VERSIONS[omop_cdm_version][:fields]
     @assert !isempty(omop_fields) "OMOP CDM version $(omop_cdm_version) has no registered fields."
-    failed_columns = Vector{NamedTuple{(:colname, :type, :expected), Tuple{String, Any, Any}}}()
+    failed_columns =
+        Vector{NamedTuple{(:colname, :type, :expected),Tuple{String,Any,Any}}}()
     extra_columns = String[]
 
     for col in names(df)
         col_symbol = Symbol(col)
-        
+
         if !haskey(omop_fields, col_symbol)
             push!(extra_columns, col)
             continue
@@ -131,22 +147,43 @@ function HealthBase.HealthTable(
 
         if !haskey(fieldinfo, :cdmDatatype)
             if !collect_errors
-                throw(ArgumentError("Column '$(col)' is missing :cdmDatatype information in the schema."))
+                throw(
+                    ArgumentError(
+                        "Column '$(col)' is missing :cdmDatatype information in the schema.",
+                    ),
+                )
             end
-            push!(failed_columns, (colname=col, type=actual_type, expected="<missing from schema>"))
+            push!(
+                failed_columns,
+                (colname = col, type = actual_type, expected = "<missing from schema>"),
+            )
         else
             expected_string = fieldinfo[:cdmDatatype]
 
             if !haskey(DATATYPE_MAP, expected_string)
-                push!(failed_columns, (colname=col, type=actual_type, expected="Unrecognized OMOP datatype: $(expected_string)"))
+                push!(
+                    failed_columns,
+                    (
+                        colname = col,
+                        type = actual_type,
+                        expected = "Unrecognized OMOP datatype: $(expected_string)",
+                    ),
+                )
             else
                 expected_type = DATATYPE_MAP[expected_string]
 
-                if !(actual_type <: Union{expected_type, Missing})
+                if !(actual_type <: Union{expected_type,Missing})
                     if !collect_errors
-                        throw(ArgumentError("Column '$(col)' has type $(actual_type), but expected a subtype of $(expected_type)."))
+                        throw(
+                            ArgumentError(
+                                "Column '$(col)' has type $(actual_type), but expected a subtype of $(expected_type).",
+                            ),
+                        )
                     end
-                    push!(failed_columns, (colname=col, type=actual_type, expected=expected_type))
+                    push!(
+                        failed_columns,
+                        (colname = col, type = actual_type, expected = expected_type),
+                    )
                 end
             end
 
@@ -157,18 +194,28 @@ function HealthBase.HealthTable(
             end
         end
     end
-        
+
     validation_msgs = String[]
 
     if !isempty(failed_columns)
-        error_details = join(["Column '$(err.colname)': has type $(err.type), expected $(err.expected)" for err in failed_columns], "\n")
-        push!(validation_msgs, "OMOP CDM type validation failed for the following columns:\n" * error_details)
+        error_details = join(
+            [
+                "Column '$(err.colname)': has type $(err.type), expected $(err.expected)"
+                for err in failed_columns
+            ],
+            "\n",
+        )
+        push!(
+            validation_msgs,
+            "OMOP CDM type validation failed for the following columns:\n" * error_details,
+        )
     end
 
     if !isempty(validation_msgs)
         full_message = join(validation_msgs, "\n\n") * "\n"
         if disable_type_enforcement
-            @warn full_message * "\nType enforcement is disabled. Unexpected behavior may occur."
+            @warn full_message *
+                  "\nType enforcement is disabled. Unexpected behavior may occur."
         else
             throw(ArgumentError(full_message))
         end
@@ -212,7 +259,7 @@ function HealthBase.one_hot_encode(
     ht::HealthTable;
     cols::Vector{Symbol},
     drop_original::Bool = true,
-    return_features_only::Bool = false
+    return_features_only::Bool = false,
 )
     df = copy(ht.source)
     missing = setdiff(cols, Symbol.(names(df)))
@@ -227,7 +274,7 @@ function HealthBase.one_hot_encode(
         cats = unique(skipmissing(df[!, col]))
         enc = OneHotEncoding(cats)
         header = Symbol.(string(col, "_", c) for c in cats)
-        df = apply_append(df, enc; cols=[col], header=header)
+        df = apply_append(df, enc; cols = [col], header = header)
     end
 
     drop_original && select!(df, Not(cols))
@@ -266,13 +313,13 @@ ht_mapped = map_concepts(ht, :gender_concept_id, "gender_name", conn; schema = "
 """
 function HealthBase.map_concepts(
     ht::HealthTable,
-    cols::Union{Symbol, Vector{Symbol}},
+    cols::Union{Symbol,Vector{Symbol}},
     conn::DuckDB.DB;
-    new_cols::Union{Nothing, String, Vector{String}} = nothing,
+    new_cols::Union{Nothing,String,Vector{String}} = nothing,
     drop_original::Bool = false,
     suffix::String = "_mapped",
     concept_table::String = "concept",
-    schema::String = "main"
+    schema::String = "main",
 )
     df = copy(ht.source)
     _map_concepts!(df, cols, conn; new_cols, drop_original, suffix, concept_table, schema)
@@ -309,13 +356,13 @@ map_concepts!(ht, :gender_concept_id, conn; new_cols="gender_name", schema="dbt_
 """
 function HealthBase.map_concepts!(
     ht::HealthTable,
-    cols::Union{Symbol, Vector{Symbol}},
+    cols::Union{Symbol,Vector{Symbol}},
     conn::DuckDB.DB;
-    new_cols::Union{Nothing, String, Vector{String}} = nothing,
+    new_cols::Union{Nothing,String,Vector{String}} = nothing,
     drop_original::Bool = false,
     suffix::String = "_mapped",
     concept_table::String = "concept",
-    schema::String = "main"
+    schema::String = "main",
 )
     _map_concepts!(
         ht.source,
@@ -325,7 +372,7 @@ function HealthBase.map_concepts!(
         drop_original = drop_original,
         suffix = suffix,
         concept_table = concept_table,
-        schema = schema
+        schema = schema,
     )
     return ht
 end
@@ -351,13 +398,13 @@ Low-level internal helper to map concept IDs to names directly on a `DataFrame`.
 """
 function _map_concepts!(
     df::DataFrame,
-    cols::Union{Symbol, Vector{Symbol}},
+    cols::Union{Symbol,Vector{Symbol}},
     conn::DuckDB.DB;
-    new_cols::Union{Nothing, String, Vector{String}} = nothing,
+    new_cols::Union{Nothing,String,Vector{String}} = nothing,
     drop_original::Bool = false,
     suffix::String = "_mapped",
     concept_table::String = "concept",
-    schema::String = "main"
+    schema::String = "main",
 )
     cols = isa(cols, Symbol) ? [cols] : cols
 
@@ -391,7 +438,10 @@ function _map_concepts!(
             continue
         end
 
-        mapping = Dict((cid => cname) for (cid, cname) in zip(result_df.concept_id, result_df.concept_name))
+        mapping = Dict(
+            (cid => cname) for
+            (cid, cname) in zip(result_df.concept_id, result_df.concept_name)
+        )
         df[!, new_col] = map(x -> get(mapping, x, missing), df[!, col])
 
         if drop_original
@@ -437,7 +487,8 @@ function HealthBase.apply_vocabulary_compression(
         counts = combine(groupby(df, col), nrow => :freq)
         to_compress = counts[counts.freq .< min_freq, col]
         if !isempty(to_compress)
-            df[!, dest_col] = map(x -> in(x, to_compress) ? other_label : string(x), df[!, col])
+            df[!, dest_col] =
+                map(x -> in(x, to_compress) ? other_label : string(x), df[!, col])
         end
     end
 
@@ -449,4 +500,3 @@ function HealthBase.apply_vocabulary_compression(
 end
 
 end
-
