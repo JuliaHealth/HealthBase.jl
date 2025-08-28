@@ -193,7 +193,12 @@ The study environment remains activated for you to immediately add packages.
 julia> initialize_study("Cardiooncology", "Jacob S. Zelko, Jakub Mitura"; github_name = "TheCedarPrince", template=:observational)
 ```
 """
-function HealthBase.initialize_study(path, authors = nothing; github_name = "PutYourGitHubNameHere", template::Symbol = :default)
+function HealthBase.initialize_study(
+    path,
+    authors = nothing;
+    github_name = "PutYourGitHubNameHere",
+    template::Symbol = :default,
+)
     tpl = study_template(template).template
     ftg = study_template(template).folders_to_gitignore
 
@@ -222,7 +227,7 @@ function HealthBase.initialize_study(path, authors = nothing; github_name = "Put
         folders_to_gitignore = ftg,
         force = true,
         add_docs = true,
-        github_name = github_name
+        github_name = github_name,
     )
     cd(path)
 end

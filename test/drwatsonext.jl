@@ -9,11 +9,11 @@ cd("..")
 rm("test_study", recursive = true, force = true)
 
 mktemp() do fname, f
-   write(f, "X")
-   seek(f, 0)
-   redirect_stdin(f) do
+    write(f, "X")
+    seek(f, 0)
+    redirect_stdin(f) do
         @test initialize_study(path; template = :llm) == nothing
-   end
+    end
 end
 
 cd("..")
@@ -46,7 +46,11 @@ quickactivate(path)
 cd("..")
 rm("test_study", recursive = true, force = true)
 
-@test_throws ErrorException initialize_study(path; github_name = github_name, template = :foobar)
+@test_throws ErrorException initialize_study(
+    path;
+    github_name = github_name,
+    template = :foobar,
+)
 
 STUDY_TEMPLATES = Base.get_extension(HealthBase, :HealthBaseDrWatsonExt).STUDY_TEMPLATES
 
